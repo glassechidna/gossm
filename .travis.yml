@@ -10,12 +10,11 @@ install:
   - linux-amd64/glide install
   - curl -sL -o upx.txz https://github.com/upx/upx/releases/download/v3.93/upx-3.93-amd64_linux.tar.xz
   - tar -xvf upx.txz
-  
+
 script: ls
 
 after_success:
   - gox -arch="amd64" -os="windows linux darwin"
-  - ls -lhR
   - upx-3.93-amd64_linux/upx gossm_{windows_amd64.exe,linux_amd64}
 
 deploy:
