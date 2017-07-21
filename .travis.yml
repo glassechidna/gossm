@@ -1,0 +1,32 @@
+language: go
+
+go:
+  - 1.x
+
+install:
+  - go get github.com/mitchellh/gox
+  - curl -sL -o glide.tgz https://github.com/Masterminds/glide/releases/download/v0.12.3/glide-v0.12.3-linux-amd64.tar.gz
+  - tar -xvf glide.tgz
+  - linux-amd64/glide install
+  - curl -sL -o upx.txz https://github.com/upx/upx/releases/download/v3.93/upx-3.93-amd64_linux.tar.xz
+  - tar -xvf upx.txz
+  
+script: ls
+
+after_success:
+  - gox -arch="amd64" -os="windows linux darwin"
+  - ls -lhR
+  - upx-3.93-amd64_linux/upx gossm_{windows_amd64.exe,linux_amd64}
+
+deploy:
+  provider: releases
+  api_key:
+    secure: PEY0FFcnlSQXijoJEvYxSXFKYGI8DTnSw/FCeWzSCbESxInreSZmDDq9fQ10MXaU6xr/FFD+UOi9vKguFF9/9kXwWCvuDjwppigvWQXO6Kfz1NaTy/YqAowiye7XZ85mekaxh1ggpLilTZaU4hJBluE6vfnc42cXoV+szLYYVyZIP4QAstho/26lhICo9cdsPxYllKfdUkCM0o+q64wErWVJM/9N6WsrCmPEe1FbFWhsLafBP9dEA4n0F2mm5ge7MVdjLb3QrTA9Zs0++pR+vcaPJYxZo7bl8nrVmmXaGJlBZM0tYnxmvQuvboyD5YxkOZfagQFt+I7RF8UHE8HRveK7FBqUI7BlszcOkkn3MV4+hizxQk5RQxiCCelxPqNVofVvkvgxHYXfmiOPt8rQQbi+jrPk3UxQC3vE/fk3VhKDIPdxrp6/+G/C0ghsD1etp3ZpQtaj9c42qNBBlMllLwU7S0PcbdZuwUoD5XAf5bmwH96Dd6rnSYWr+nFiVbgdnC3kQ3a3kquxgwEVXHON5FCRcXKP3IjHdYWsCH6hG97goSwHCPTaDv+BeX8ByAB8n814AgOK99WvhoOYDa6MUIx4u3F1djv2a558WE2QVYTe0Ofh8vQ0SBGFIvODMwaDVYGTBIDUpkNEV8g9BouESzVfFKZpSHxRcuMo1jNpZI4=
+  skip_cleanup: true
+  file:
+    - gossm_linux_amd64
+    - gossm_darwin_amd64
+    - gossm_windows_amd64.exe
+  on:
+    tags: true
+    repo: aidansteele/gossm
