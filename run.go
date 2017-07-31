@@ -52,6 +52,8 @@ func doit(sess *session.Session, instanceId, command string, timeout int64) {
 	cmdResp := ssm.GetCommandInvocationOutput{}
 
 	for {
+		time.Sleep(time.Second * 3)
+
 		resp2, err := client.GetCommandInvocation(&ssm.GetCommandInvocationInput{
 			CommandId: commandId,
 			InstanceId: &instanceId,
@@ -67,8 +69,6 @@ func doit(sess *session.Session, instanceId, command string, timeout int64) {
 			cmdResp = *resp2
 			break
 		}
-
-		time.Sleep(time.Second * 3)
 	}
 
 	os.Stderr.WriteString(*cmdResp.StandardErrorContent)
