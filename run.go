@@ -132,6 +132,8 @@ func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, comma
 			}
 
 			if *invocation.Status != "InProgress" {
+				time.Sleep(time.Second * 3)
+
 				colourIdx := len(printedInstanceIds) % 2
 				prefix := fmt.Sprintf("[%d/%d %s] ", len(printedInstanceIds) + 1, len(resp3.CommandInvocations), instanceId)
 
