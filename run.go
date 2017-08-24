@@ -113,6 +113,7 @@ func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, comma
 	commandId := resp.Command.CommandId
 	printedInstanceIds := []string{}
 
+	printedInstanceList := false
 
 	for {
 		time.Sleep(time.Second * 3)
@@ -123,6 +124,15 @@ func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, comma
 
 		if err != nil {
 			log.Panicf(err.Error())
+		}
+
+		if !printedInstanceList {
+			instanceIds := []string{}
+			for _, invocation := range resp3.CommandInvocations {
+				instanceIds = append(instanceIds, *invocation.InstanceId)
+			}
+			color.Blue("Running command on instances: %+v\n", instanceIds)
+			printedInstanceList = true
 		}
 
 		for _, invocation := range resp3.CommandInvocations {
