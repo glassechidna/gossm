@@ -17,12 +17,12 @@ var RootCmd = &cobra.Command{
 	Use:   "gossm",
 	Short: "Run commands on remote machines using EC2 SSM Run Command",
 	Run: func(cmd *cobra.Command, args []string) {
-		region, _ := cmd.PersistentFlags().GetString("region")
-		profile, _ := cmd.PersistentFlags().GetString("profile")
+		region := viper.GetString("region")
+		profile := viper.GetString("profile")
 		sess := AwsSession(profile, region)
 
-		bucket, _ := cmd.PersistentFlags().GetString("s3-bucket")
-		keyPrefix, _ := cmd.PersistentFlags().GetString("s3-key-prefix")
+		bucket := viper.GetString("s3-bucket")
+		keyPrefix := viper.GetString("s3-key-prefix")
 		instanceIds, _ := cmd.PersistentFlags().GetStringSlice("instance-id")
 		tagPairs, _ := cmd.PersistentFlags().GetStringSlice("tag")
 
@@ -76,6 +76,8 @@ func init() {
 	RootCmd.PersistentFlags().StringSliceP("instance-id", "i", []string{}, "")
 	RootCmd.PersistentFlags().StringSliceP("tag", "t", []string{}, "")
 	RootCmd.PersistentFlags().Int64("timeout", 600, "")
+
+	viper.BindPFlags(RootCmd.PersistentFlags())
 }
 
 func initConfig() {
