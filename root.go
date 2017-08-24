@@ -73,7 +73,7 @@ func init() {
 	RootCmd.PersistentFlags().String("region", "", "")
 	RootCmd.PersistentFlags().String("s3-bucket", "", "")
 	RootCmd.PersistentFlags().String("s3-key-prefix", "", "")
-	RootCmd.PersistentFlags().StringSlice("instance-ids", []string{}, "")
+	RootCmd.PersistentFlags().StringSliceP("instance-id", "i", []string{}, "")
 	RootCmd.PersistentFlags().StringSliceP("tag", "t", []string{}, "")
 	RootCmd.PersistentFlags().Int64("timeout", 600, "")
 }
