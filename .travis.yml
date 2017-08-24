@@ -11,7 +11,7 @@ install:
   - curl -sL -o glide.tgz https://github.com/Masterminds/glide/releases/download/v0.12.3/glide-v0.12.3-linux-amd64.tar.gz
   - tar -xvf glide.tgz
   - linux-amd64/glide install
-  - curl -sL -o upx.txz https://github.com/upx/upx/releases/download/v3.93/upx-3.93-amd64_linux.tar.xz
+  - curl -sL -o upx.txz https://github.com/upx/upx/releases/download/v3.94/upx-3.94-amd64_linux.tar.xz
   - tar -xvf upx.txz
 
 script: ls
@@ -19,7 +19,7 @@ script: ls
 after_success:
   - gox -arch="amd64" -os="windows linux darwin"
   - ls
-  - upx-3.93-amd64_linux/upx gossm_{windows_amd64.exe,linux_amd64}
+  - upx-3.94-amd64_linux/upx gossm_*
 
 deploy:
   provider: releases
