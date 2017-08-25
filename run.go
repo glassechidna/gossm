@@ -16,6 +16,9 @@ import (
 	"github.com/fatih/color"
 	"github.com/nsf/termbox-go"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"text/template"
+	"bytes"
+	"github.com/aws/aws-sdk-go/service/sts"
 )
 
 func AwsSession(profile, region string) *session.Session {
@@ -139,8 +142,29 @@ func commandInstanceIds(sess *session.Session, commandId string) CommandInstance
 	}
 }
 
+func realBucketName(sess *session.Session, input string) string {
+	tmpl, err := template.New("bucket").Parse(input)
+	if err != nil { log.Panicf(err.Error()) }
+
+	buf := bytes.Buffer{}
+
+	region := *sess.Config.Region
+	identity, _ := sts.New(sess).GetCallerIdentity(&sts.GetCallerIdentityInput{})
+	accountId := *identity.Account
+
+	err = tmpl.Execute(&buf, map[string]string{
+		"Region": region,
+		"AccountId": accountId,
+	})
+	if err != nil { log.Panicf(err.Error()) }
+
+	return buf.String()
+}
+
 func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, command string, timeout int64) {
 	client := ssm.New(sess)
+	bucket = realBucketName(sess, bucket)
+
 	resp, err := client.SendCommand(&ssm.SendCommandInput{
 		DocumentName: aws.String("AWS-RunShellScript"),
 		Targets: targets,
