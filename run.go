@@ -15,6 +15,7 @@ import (
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/fatih/color"
 	"github.com/nsf/termbox-go"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 func AwsSession(profile, region string) *session.Session {
@@ -93,6 +94,51 @@ var stderrColours = []*color.Color{
 	color.New(color.FgHiRed),
 }
 
+type CommandInstanceIdsOutput struct {
+	InstanceIds []string
+	FaultyInstanceIds []string
+}
+
+func commandInstanceIds(sess *session.Session, commandId string) CommandInstanceIdsOutput {
+	ssmClient := ssm.New(sess)
+	listInput := &ssm.ListCommandInvocationsInput{CommandId: &commandId}
+
+	resp3, err := ssmClient.ListCommandInvocations(listInput)
+	if err != nil { log.Panicf(err.Error()) }
+
+	instanceIds := []string{}
+	for _, invocation := range resp3.CommandInvocations {
+		instanceIds = append(instanceIds, *invocation.InstanceId)
+	}
+
+	ec2client := ec2.New(sess)
+	instanceDescs, _ := ec2client.DescribeInstances(&ec2.DescribeInstancesInput{
+		InstanceIds: aws.StringSlice(instanceIds),
+	})
+
+	liveInstanceIds := []string{}
+	for _, reservation := range instanceDescs.Reservations {
+		for _, instance := range reservation.Instances {
+			if *instance.State.Name == "running" {
+				liveInstanceIds = append(liveInstanceIds, *instance.InstanceId)
+			}
+		}
+	}
+
+	faulty := []string{}
+
+	for _, instanceId := range instanceIds {
+		if !stringInSlice(instanceId, liveInstanceIds) {
+			faulty = append(faulty, instanceId)
+		}
+	}
+
+	return CommandInstanceIdsOutput{
+		InstanceIds: instanceIds,
+		FaultyInstanceIds: faulty,
+	}
+}
+
 func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, command string, timeout int64) {
 	client := ssm.New(sess)
 	resp, err := client.SendCommand(&ssm.SendCommandInput{
@@ -110,29 +156,26 @@ func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, comma
 		log.Panicf(err.Error())
 	}
 
+	time.Sleep(time.Second * 3)
+
 	commandId := resp.Command.CommandId
+	instanceIds := commandInstanceIds(sess, *commandId)
 	printedInstanceIds := []string{}
 
-	printedInstanceList := false
+	color.Blue("Running command on instances: %+v\n", instanceIds.InstanceIds)
+	if len(instanceIds.FaultyInstanceIds) > 0 {
+		color.Red("Command sent to terminated instances: %+v\n", instanceIds.FaultyInstanceIds)
+	}
+	expectedResponseCount := len(instanceIds.InstanceIds) - len(instanceIds.FaultyInstanceIds)
 
 	for {
 		time.Sleep(time.Second * 3)
 
-		resp3, err := client.ListCommandInvocations(&ssm.ListCommandInvocationsInput{
-			CommandId: commandId,
-		})
+		listInput := &ssm.ListCommandInvocationsInput{CommandId: commandId}
+		resp3, err := client.ListCommandInvocations(listInput)
 
 		if err != nil {
 			log.Panicf(err.Error())
-		}
-
-		if !printedInstanceList {
-			instanceIds := []string{}
-			for _, invocation := range resp3.CommandInvocations {
-				instanceIds = append(instanceIds, *invocation.InstanceId)
-			}
-			color.Blue("Running command on instances: %+v\n", instanceIds)
-			printedInstanceList = true
 		}
 
 		for _, invocation := range resp3.CommandInvocations {
@@ -145,7 +188,7 @@ func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, comma
 				time.Sleep(time.Second * 3)
 
 				colourIdx := len(printedInstanceIds) % 2
-				prefix := fmt.Sprintf("[%d/%d %s] ", len(printedInstanceIds) + 1, len(resp3.CommandInvocations), instanceId)
+				prefix := fmt.Sprintf("[%d/%d %s] ", len(printedInstanceIds) + 1, expectedResponseCount, instanceId)
 
 				stdout, _ := getFromS3Url(sess, *invocation.StandardOutputUrl)
 				if stdout != nil {
@@ -163,7 +206,7 @@ func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, comma
 			}
 		}
 
-		if len(printedInstanceIds) == len(resp3.CommandInvocations) {
+		if len(printedInstanceIds) == expectedResponseCount {
 			break
 		}
 	}
