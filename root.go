@@ -7,8 +7,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"strings"
-	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 var cfgFile string
@@ -23,37 +21,22 @@ var RootCmd = &cobra.Command{
 
 		bucket := viper.GetString("s3-bucket")
 		keyPrefix := viper.GetString("s3-key-prefix")
+
 		instanceIds, _ := cmd.PersistentFlags().GetStringSlice("instance-id")
 		tagPairs, _ := cmd.PersistentFlags().GetStringSlice("tag")
-
-		targets := []*ssm.Target{}
-
-		for _, pair := range tagPairs {
-			splitted := strings.SplitN(pair, "=", 2)
-
-			tag := splitted[0]
-			val := splitted[1]
-			key := fmt.Sprintf("tag:%s", tag)
-
-			target := &ssm.Target{
-				Key: &key,
-				Values: []*string{&val},
-			}
-			targets = append(targets, target)
-		}
-
-		if len(instanceIds) > 0 {
-			target := &ssm.Target{
-				Key: aws.String("InstanceIds"),
-				Values: aws.StringSlice(instanceIds),
-			}
-			targets = append(targets, target)
-		}
+		targets := makeTargets(tagPairs, instanceIds)
 
 		timeout, _ := cmd.PersistentFlags().GetInt64("timeout")
 		command := strings.Join(args, " ")
 
-		doit(sess, targets, bucket, keyPrefix, command, timeout)
+		shell := "bash"
+		if viper.GetBool("powershell") {
+			shell = "powershell"
+		}
+
+		bucket = realBucketName(sess, bucket)
+		input := makeCommandInput(targets, bucket, keyPrefix, command, shell, timeout)
+		doit(sess, input)
 	},
 }
 
@@ -73,6 +56,7 @@ func init() {
 	RootCmd.PersistentFlags().String("region", "", "")
 	RootCmd.PersistentFlags().String("s3-bucket", "", "")
 	RootCmd.PersistentFlags().String("s3-key-prefix", "", "")
+	RootCmd.PersistentFlags().BoolP("powershell", "p", false, "")
 	RootCmd.PersistentFlags().StringSliceP("instance-id", "i", []string{}, "")
 	RootCmd.PersistentFlags().StringSliceP("tag", "t", []string{}, "")
 	RootCmd.PersistentFlags().Int64("timeout", 600, "")

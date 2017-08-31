@@ -100,6 +100,7 @@ var stderrColours = []*color.Color{
 type CommandInstanceIdsOutput struct {
 	InstanceIds []string
 	FaultyInstanceIds []string
+	WrongPlatformInstanceIds []string
 }
 
 func commandInstanceIds(sess *session.Session, commandId string) CommandInstanceIdsOutput {
@@ -109,9 +110,13 @@ func commandInstanceIds(sess *session.Session, commandId string) CommandInstance
 	resp3, err := ssmClient.ListCommandInvocations(listInput)
 	if err != nil { log.Panicf(err.Error()) }
 
+	invocationMap := map[string]*ssm.CommandInvocation{}
+
 	instanceIds := []string{}
 	for _, invocation := range resp3.CommandInvocations {
-		instanceIds = append(instanceIds, *invocation.InstanceId)
+		id := *invocation.InstanceId
+		instanceIds = append(instanceIds, id)
+		invocationMap[id] = invocation
 	}
 
 	ec2client := ec2.New(sess)
@@ -120,8 +125,21 @@ func commandInstanceIds(sess *session.Session, commandId string) CommandInstance
 	})
 
 	liveInstanceIds := []string{}
+	wrongInstanceIds := []string{}
+
 	for _, reservation := range instanceDescs.Reservations {
 		for _, instance := range reservation.Instances {
+			invocation := invocationMap[*instance.InstanceId]
+			docName := *invocation.DocumentName
+
+			if instance.Platform != nil && *instance.Platform == "windows" && docName != "AWS-RunPowerShellScript" {
+				wrongInstanceIds = append(wrongInstanceIds, *instance.InstanceId)
+				continue
+			} else if instance.Platform == nil /* linux */ && docName != "AWS-RunShellScript" {
+				wrongInstanceIds = append(wrongInstanceIds, *instance.InstanceId)
+				continue
+			}
+
 			if *instance.State.Name == "running" {
 				liveInstanceIds = append(liveInstanceIds, *instance.InstanceId)
 			}
@@ -131,7 +149,7 @@ func commandInstanceIds(sess *session.Session, commandId string) CommandInstance
 	faulty := []string{}
 
 	for _, instanceId := range instanceIds {
-		if !stringInSlice(instanceId, liveInstanceIds) {
+		if !stringInSlice(instanceId, liveInstanceIds) && !stringInSlice(instanceId, wrongInstanceIds) {
 			faulty = append(faulty, instanceId)
 		}
 	}
@@ -139,6 +157,7 @@ func commandInstanceIds(sess *session.Session, commandId string) CommandInstance
 	return CommandInstanceIdsOutput{
 		InstanceIds: instanceIds,
 		FaultyInstanceIds: faulty,
+		WrongPlatformInstanceIds: wrongInstanceIds,
 	}
 }
 
@@ -161,12 +180,42 @@ func realBucketName(sess *session.Session, input string) string {
 	return buf.String()
 }
 
-func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, command string, timeout int64) {
-	client := ssm.New(sess)
-	bucket = realBucketName(sess, bucket)
+func makeTargets(tagPairs, instanceIds []string) []*ssm.Target {
+	targets := []*ssm.Target{}
 
-	resp, err := client.SendCommand(&ssm.SendCommandInput{
-		DocumentName: aws.String("AWS-RunShellScript"),
+	for _, pair := range tagPairs {
+		splitted := strings.SplitN(pair, "=", 2)
+
+		tag := splitted[0]
+		val := splitted[1]
+		key := fmt.Sprintf("tag:%s", tag)
+
+		target := &ssm.Target{
+			Key: &key,
+			Values: []*string{&val},
+		}
+		targets = append(targets, target)
+	}
+
+	if len(instanceIds) > 0 {
+		target := &ssm.Target{
+			Key: aws.String("InstanceIds"),
+			Values: aws.StringSlice(instanceIds),
+		}
+		targets = append(targets, target)
+	}
+
+	return targets
+}
+
+func makeCommandInput(targets []*ssm.Target, bucket, keyPrefix, command, shellType string, timeout int64) *ssm.SendCommandInput {
+	docName := "AWS-RunShellScript"
+	if shellType == "powershell" {
+		docName = "AWS-RunPowerShellScript"
+	}
+
+	return &ssm.SendCommandInput{
+		DocumentName: &docName,
 		Targets: targets,
 		TimeoutSeconds: &timeout,
 		OutputS3BucketName: &bucket,
@@ -174,7 +223,13 @@ func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, comma
 		Parameters: map[string][]*string {
 			"commands": aws.StringSlice([]string{command}),
 		},
-	})
+	}
+}
+
+func doit(sess *session.Session, commandInput *ssm.SendCommandInput) {
+	client := ssm.New(sess)
+
+	resp, err := client.SendCommand(commandInput)
 
 	if err != nil {
 		log.Panicf(err.Error())
@@ -186,11 +241,16 @@ func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, comma
 	instanceIds := commandInstanceIds(sess, *commandId)
 	printedInstanceIds := []string{}
 
-	color.Blue("Running command on instances: %+v\n", instanceIds.InstanceIds)
+	color.Green("Command ID: %s\n", *commandId)
+	color.Blue("Running command on %d instances: %+v\n", len(instanceIds.InstanceIds), instanceIds.InstanceIds)
 	if len(instanceIds.FaultyInstanceIds) > 0 {
-		color.Red("Command sent to terminated instances: %+v\n", instanceIds.FaultyInstanceIds)
+		color.Red("Command sent to %d terminated instances: %+v\n", len(instanceIds.FaultyInstanceIds), instanceIds.FaultyInstanceIds)
 	}
-	expectedResponseCount := len(instanceIds.InstanceIds) - len(instanceIds.FaultyInstanceIds)
+	if len(instanceIds.WrongPlatformInstanceIds) > 0 {
+		color.Red("Command sent to %d wrong OS instances: %+v\n", len(instanceIds.WrongPlatformInstanceIds), instanceIds.WrongPlatformInstanceIds)
+	}
+
+	expectedResponseCount := len(instanceIds.InstanceIds) - len(instanceIds.FaultyInstanceIds) - len(instanceIds.WrongPlatformInstanceIds)
 
 	for {
 		time.Sleep(time.Second * 3)
@@ -204,26 +264,35 @@ func doit(sess *session.Session, targets []*ssm.Target, bucket, keyPrefix, comma
 
 		for _, invocation := range resp3.CommandInvocations {
 			instanceId := *invocation.InstanceId
-			if stringInSlice(instanceId, printedInstanceIds) {
+			if stringInSlice(instanceId, printedInstanceIds) ||
+				stringInSlice(instanceId, instanceIds.FaultyInstanceIds) ||
+				stringInSlice(instanceId, instanceIds.WrongPlatformInstanceIds) {
 				continue
 			}
 
 			if *invocation.Status != "InProgress" {
 				time.Sleep(time.Second * 3)
 
-				colourIdx := len(printedInstanceIds) % 2
 				prefix := fmt.Sprintf("[%d/%d %s] ", len(printedInstanceIds) + 1, expectedResponseCount, instanceId)
 
-				stdout, _ := getFromS3Url(sess, *invocation.StandardOutputUrl)
-				if stdout != nil {
-					colour := stdoutColours[colourIdx]
-					printFormattedOutput(colour.Sprint(prefix), *stdout)
-				}
+				if *invocation.Status == "Success" {
+					colourIdx := len(printedInstanceIds) % 2
 
-				stderr, _ := getFromS3Url(sess, *invocation.StandardErrorUrl)
-				if stderr != nil {
-					colour := stderrColours[colourIdx]
-					printFormattedOutput(colour.Sprint(prefix), *stderr)
+					stdout, _ := getFromS3Url(sess, *invocation.StandardOutputUrl)
+					if stdout != nil {
+						colour := stdoutColours[colourIdx]
+						printFormattedOutput(colour.Sprint(prefix), *stdout)
+					}
+
+					stderr, _ := getFromS3Url(sess, *invocation.StandardErrorUrl)
+					if stderr != nil {
+						colour := stderrColours[colourIdx]
+						printFormattedOutput(colour.Sprint(prefix), *stderr)
+					}
+				} else {
+					colour := color.New(color.FgHiRed)
+					message := fmt.Sprintf("%s: %s", *invocation.Status, *invocation.StatusDetails)
+					printFormattedOutput(colour.Sprint(prefix), message)
 				}
 
 				printedInstanceIds = append(printedInstanceIds, instanceId)
