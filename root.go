@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"strings"
+	"io/ioutil"
 )
 
 var cfgFile string
@@ -27,7 +28,7 @@ var RootCmd = &cobra.Command{
 		targets := makeTargets(tagPairs, instanceIds)
 
 		timeout, _ := cmd.PersistentFlags().GetInt64("timeout")
-		command := strings.Join(args, " ")
+		command := getCommandInput(args)
 
 		shell := "bash"
 		if viper.GetBool("powershell") {
@@ -46,6 +47,18 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
+}
+
+func getCommandInput(argv []string) string {
+	command := strings.Join(argv, " ")
+
+	if len(command) == 0 {
+		fmt.Println("Enter command (and then hit Ctrl+D):")
+		bytes, _ := ioutil.ReadAll(os.Stdin)
+		command = string(bytes)
+	}
+
+	return command
 }
 
 func init() {
