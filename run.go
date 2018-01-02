@@ -74,9 +74,12 @@ func getFromS3Url(sess *session.Session, urlString string) (*string, error) {
 }
 
 func printFormattedOutput(prefix, output string) {
-	if err := termbox.Init(); err != nil { panic(err) }
-	windowWidth, _ := termbox.Size()
-	termbox.Close()
+	windowWidth := 80
+
+	if err := termbox.Init(); err == nil {
+		windowWidth, _ = termbox.Size()
+		termbox.Close()
+	}
 
 	outputWidth := windowWidth - len(prefix)
 	wrapped := wordwrap.WrapString(output, uint(outputWidth))
