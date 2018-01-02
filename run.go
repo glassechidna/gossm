@@ -278,25 +278,23 @@ func doit(sess *session.Session, commandInput *ssm.SendCommandInput) {
 
 				prefix := fmt.Sprintf("[%d/%d %s] ", len(printedInstanceIds) + 1, expectedResponseCount, instanceId)
 
-				if *invocation.Status == "Success" {
-					colourIdx := len(printedInstanceIds) % 2
+				colourIdx := len(printedInstanceIds) % 2
 
-					stdout, _ := getFromS3Url(sess, *invocation.StandardOutputUrl)
-					if stdout != nil {
-						colour := stdoutColours[colourIdx]
-						printFormattedOutput(colour.Sprint(prefix), *stdout)
-					}
-
-					stderr, _ := getFromS3Url(sess, *invocation.StandardErrorUrl)
-					if stderr != nil {
-						colour := stderrColours[colourIdx]
-						printFormattedOutput(colour.Sprint(prefix), *stderr)
-					}
-				} else {
-					colour := color.New(color.FgHiRed)
-					message := fmt.Sprintf("%s: %s", *invocation.Status, *invocation.StatusDetails)
-					printFormattedOutput(colour.Sprint(prefix), message)
+				stdout, _ := getFromS3Url(sess, *invocation.StandardOutputUrl)
+				if stdout != nil {
+					colour := stdoutColours[colourIdx]
+					printFormattedOutput(colour.Sprint(prefix), *stdout)
 				}
+
+				stderr, _ := getFromS3Url(sess, *invocation.StandardErrorUrl)
+				if stderr != nil {
+					colour := stderrColours[colourIdx]
+					printFormattedOutput(colour.Sprint(prefix), *stderr)
+				}
+
+				colour := color.New(color.FgBlue)
+				message := fmt.Sprintf("%s: %s", *invocation.Status, *invocation.StatusDetails)
+				printFormattedOutput(colour.Sprint(prefix), message)
 
 				printedInstanceIds = append(printedInstanceIds, instanceId)
 			}
