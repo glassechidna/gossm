@@ -36,6 +36,7 @@ var RootCmd = &cobra.Command{
 
 		bucket = realBucketName(sess, bucket)
 		input := makeCommandInput(targets, bucket, keyPrefix, command, shell, timeout)
+		printInfo("Running command: ", command)
 		doit(sess, input)
 	},
 }
