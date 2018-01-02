@@ -229,6 +229,10 @@ func makeCommandInput(targets []*ssm.Target, bucket, keyPrefix, command, shellTy
 	}
 }
 
+func printInfo(prefix, info string) {
+	fmt.Printf("%s%s\n", color.BlueString("%s", prefix), color.New(color.Faint).Sprintf("%s", info))
+}
+
 func doit(sess *session.Session, commandInput *ssm.SendCommandInput) {
 	client := ssm.New(sess)
 
@@ -244,8 +248,8 @@ func doit(sess *session.Session, commandInput *ssm.SendCommandInput) {
 	instanceIds := commandInstanceIds(sess, *commandId)
 	printedInstanceIds := []string{}
 
-	color.Green("Command ID: %s\n", *commandId)
-	color.Blue("Running command on %d instances: %+v\n", len(instanceIds.InstanceIds), instanceIds.InstanceIds)
+	printInfo("Command ID: ", *commandId)
+	printInfo(fmt.Sprintf("Running command on %d instances: ", len(instanceIds.InstanceIds)), fmt.Sprintf("%+v", instanceIds.InstanceIds))
 	if len(instanceIds.FaultyInstanceIds) > 0 {
 		color.Red("Command sent to %d terminated instances: %+v\n", len(instanceIds.FaultyInstanceIds), instanceIds.FaultyInstanceIds)
 	}
