@@ -74,6 +74,11 @@ func getFromS3Url(sess *session.Session, urlString string) (*string, error) {
 }
 
 func printFormattedOutput(prefix, output string) {
+	if quiet {
+		fmt.Println(output)
+		return
+	}
+
 	windowWidth := 80
 
 	if err := termbox.Init(); err == nil {
@@ -230,7 +235,9 @@ func makeCommandInput(targets []*ssm.Target, bucket, keyPrefix, command, shellTy
 }
 
 func printInfo(prefix, info string) {
-	fmt.Printf("%s%s\n", color.BlueString("%s", prefix), color.New(color.Faint).Sprintf("%s", info))
+	if !quiet {
+		fmt.Printf("%s%s\n", color.BlueString("%s", prefix), color.New(color.Faint).Sprintf("%s", info))
+	}
 }
 
 func doit(sess *session.Session, commandInput *ssm.SendCommandInput) {
@@ -248,13 +255,15 @@ func doit(sess *session.Session, commandInput *ssm.SendCommandInput) {
 	instanceIds := commandInstanceIds(sess, *commandId)
 	printedInstanceIds := []string{}
 
-	printInfo("Command ID: ", *commandId)
-	printInfo(fmt.Sprintf("Running command on %d instances: ", len(instanceIds.InstanceIds)), fmt.Sprintf("%+v", instanceIds.InstanceIds))
-	if len(instanceIds.FaultyInstanceIds) > 0 {
-		color.Red("Command sent to %d terminated instances: %+v\n", len(instanceIds.FaultyInstanceIds), instanceIds.FaultyInstanceIds)
-	}
-	if len(instanceIds.WrongPlatformInstanceIds) > 0 {
-		color.Red("Command sent to %d wrong OS instances: %+v\n", len(instanceIds.WrongPlatformInstanceIds), instanceIds.WrongPlatformInstanceIds)
+	if !quiet {
+		printInfo("Command ID: ", *commandId)
+		printInfo(fmt.Sprintf("Running command on %d instances: ", len(instanceIds.InstanceIds)), fmt.Sprintf("%+v", instanceIds.InstanceIds))
+		if len(instanceIds.FaultyInstanceIds) > 0 {
+			color.Red("Command sent to %d terminated instances: %+v\n", len(instanceIds.FaultyInstanceIds), instanceIds.FaultyInstanceIds)
+		}
+		if len(instanceIds.WrongPlatformInstanceIds) > 0 {
+			color.Red("Command sent to %d wrong OS instances: %+v\n", len(instanceIds.WrongPlatformInstanceIds), instanceIds.WrongPlatformInstanceIds)
+		}
 	}
 
 	expectedResponseCount := len(instanceIds.InstanceIds) - len(instanceIds.FaultyInstanceIds) - len(instanceIds.WrongPlatformInstanceIds)
@@ -296,9 +305,11 @@ func doit(sess *session.Session, commandInput *ssm.SendCommandInput) {
 					printFormattedOutput(colour.Sprint(prefix), *stderr)
 				}
 
-				colour := color.New(color.FgBlue)
-				message := fmt.Sprintf("%s: %s", *invocation.Status, *invocation.StatusDetails)
-				printFormattedOutput(colour.Sprint(prefix), message)
+				if !quiet {
+					colour := color.New(color.FgBlue)
+					message := fmt.Sprintf("%s: %s", *invocation.Status, *invocation.StatusDetails)
+					printFormattedOutput(colour.Sprint(prefix), message)
+				}
 
 				printedInstanceIds = append(printedInstanceIds, instanceId)
 			}

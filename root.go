@@ -11,6 +11,7 @@ import (
 )
 
 var cfgFile string
+var quiet bool
 
 var RootCmd = &cobra.Command{
 	Use:   "gossm",
@@ -71,6 +72,7 @@ func init() {
 	RootCmd.PersistentFlags().String("s3-bucket", "", "")
 	RootCmd.PersistentFlags().String("s3-key-prefix", "", "")
 	RootCmd.PersistentFlags().BoolP("powershell", "p", false, "")
+	RootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "")
 	RootCmd.PersistentFlags().StringSliceP("instance-id", "i", []string{}, "")
 	RootCmd.PersistentFlags().StringSliceP("tag", "t", []string{}, "")
 	RootCmd.PersistentFlags().Int64("timeout", 600, "")
@@ -88,7 +90,5 @@ func initConfig() {
 	viper.AutomaticEnv()          // read in environment variables that match
 
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
+	viper.ReadInConfig()
 }
