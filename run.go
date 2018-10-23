@@ -178,15 +178,15 @@ func realBucketName(sess *session.Session, input string) string {
 	tmpl, err := template.New("bucket").Parse(input)
 	if err != nil { log.Panicf(err.Error()) }
 
-	buf := bytes.Buffer{}
-
 	region := *sess.Config.Region
-	identity, _ := sts.New(sess).GetCallerIdentity(&sts.GetCallerIdentityInput{})
-	accountId := *identity.Account
+	api := sts.New(sess)
+	identity, err := api.GetCallerIdentity(&sts.GetCallerIdentityInput{})
+	if err != nil { log.Panicf(err.Error()) }
 
+	buf := bytes.Buffer{}
 	err = tmpl.Execute(&buf, map[string]string{
-		"Region": region,
-		"AccountId": accountId,
+		"Region":    region,
+		"AccountId": *identity.Account,
 	})
 	if err != nil { log.Panicf(err.Error()) }
 
