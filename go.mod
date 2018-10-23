@@ -13,7 +13,8 @@ require (
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/magiconair/properties v0.0.0-20170321093039-51463bfca257 // indirect
+	github.com/logrusorgru/aurora v0.0.0-20181002194514-a7b3b318ed4e
+	github.com/magiconair/properties v0.0.0-20170321093039-51463bfca257
 	github.com/mattn/go-colorable v0.0.0-20170210172801-5411d3eea597 // indirect
 	github.com/mattn/go-isatty v0.0.0-20170307163044-57fdcb988a5c // indirect
 	github.com/mattn/go-runewidth v0.0.2 // indirect

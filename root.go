@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/glassechidna/gossm/pkg/gossm"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -22,11 +23,11 @@ var RootCmd = &cobra.Command{
 		sess := AwsSession(profile, region)
 
 		bucket := viper.GetString("s3-bucket")
-		keyPrefix := viper.GetString("s3-key-prefix")
+		bucket = gossm.RealBucketName(sess, bucket)
+		//keyPrefix := viper.GetString("s3-key-prefix")
 
 		instanceIds, _ := cmd.PersistentFlags().GetStringSlice("instance-id")
 		tagPairs, _ := cmd.PersistentFlags().GetStringSlice("tag")
-		targets := makeTargets(tagPairs, instanceIds)
 
 		timeout, _ := cmd.PersistentFlags().GetInt64("timeout")
 		command := getCommandInput(args)
@@ -36,10 +37,7 @@ var RootCmd = &cobra.Command{
 			shell = "powershell"
 		}
 
-		bucket = realBucketName(sess, bucket)
-		input := makeCommandInput(targets, bucket, keyPrefix, command, shell, timeout)
-		printInfo("Running command: ", command)
-		doit(sess, input)
+		doit(sess, shell, command, bucket, quiet, timeout, tagPairs, instanceIds)
 	},
 }
 
