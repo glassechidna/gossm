@@ -1,15 +1,16 @@
 module github.com/glassechidna/gossm
 
 require (
-	github.com/aws/aws-sdk-go v1.10.31
+	github.com/aws/aws-sdk-go v1.15.60
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.5.0
 	github.com/fsnotify/fsnotify v0.0.0-20170329110642-4da3e2cfbabc // indirect
+	github.com/glassechidna/awscredcache v0.0.0-20180324063114-8def02b6f71b
 	github.com/go-ini/ini v0.0.0-20170813052230-c787282c39ac // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1 // indirect
 	github.com/hashicorp/hcl v0.0.0-20170509225359-392dba7d905e // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/jmespath/go-jmespath v0.0.0-20160803190731-bd40a432e4c7 // indirect
+	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/magiconair/properties v0.0.0-20170321093039-51463bfca257 // indirect
@@ -23,6 +24,7 @@ require (
 	github.com/nsf/termbox-go v0.0.0-20170710103407-4ed959e05409
 	github.com/pelletier/go-buffruneio v0.2.0 // indirect
 	github.com/pelletier/go-toml v0.0.0-20170508001413-23f644976aa7 // indirect
+	github.com/pkg/errors v0.8.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	github.com/smartystreets/goconvey v0.0.0-20180222194500-ef6db91d284a // indirect

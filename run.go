@@ -1,30 +1,37 @@
 package main
 
 import (
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ssm"
-	"log"
-	"time"
-	"net/url"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"strings"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"fmt"
-	"github.com/mitchellh/go-wordwrap"
-	"github.com/fatih/color"
-	"github.com/nsf/termbox-go"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"text/template"
 	"bytes"
+	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/glassechidna/awscredcache"
+	"github.com/fatih/color"
+	"github.com/mitchellh/go-wordwrap"
+	"github.com/nsf/termbox-go"
+	"log"
+	"net/url"
+	"strings"
+	"text/template"
+	"time"
 )
 
 func AwsSession(profile, region string) *session.Session {
+	provider := awscredcache.NewAwsCacheCredProvider(profile)
+	chain := provider.WrapInChain()
+	creds := credentials.NewCredentials(chain)
+
 	sessOpts := session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 		AssumeRoleTokenProvider: stscreds.StdinTokenProvider,
+		Config: aws.Config{Credentials: creds},
 	}
 
 	if len(profile) > 0 {
@@ -32,11 +39,9 @@ func AwsSession(profile, region string) *session.Session {
 	}
 
 	sess, _ := session.NewSessionWithOptions(sessOpts)
-	config := aws.NewConfig()
 
 	if len(region) > 0 {
-		config.Region = aws.String(region)
-		sess.Config = config
+		sess.Config.Region = &region
 	}
 
 	return sess
