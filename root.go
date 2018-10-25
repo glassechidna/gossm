@@ -31,8 +31,9 @@ var RootCmd = &cobra.Command{
 		if viper.GetBool("powershell") {
 			shell = "powershell"
 		}
+		files := viper.GetBool("files")
 
-		doit(sess, shell, command, quiet, timeout, tagPairs, instanceIds)
+		doit(sess, shell, command, files, quiet, timeout, tagPairs, instanceIds)
 	},
 }
 
@@ -63,6 +64,7 @@ func init() {
 	RootCmd.PersistentFlags().String("profile", "", "")
 	RootCmd.PersistentFlags().String("region", "", "")
 	RootCmd.PersistentFlags().BoolP("powershell", "p", false, "")
+	RootCmd.PersistentFlags().BoolP("files", "f", false, "")
 	RootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "")
 	RootCmd.PersistentFlags().StringSliceP("instance-id", "i", []string{}, "")
 	RootCmd.PersistentFlags().StringSliceP("tag", "t", []string{}, "")

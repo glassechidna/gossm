@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
@@ -11,9 +12,13 @@ import (
 	"github.com/glassechidna/gossm/pkg/gossm"
 	"github.com/glassechidna/gossm/pkg/gossm/printer"
 	"github.com/pquerna/otp/totp"
+	"io"
+	"os"
+	"path/filepath"
+	"time"
 )
 
-func doit(sess *session.Session, shellType, command string, quiet bool, timeout int64, tagPairs, instanceIds []string) {
+func doit(sess *session.Session, shellType, command string, files, quiet bool, timeout int64, tagPairs, instanceIds []string) {
 	client := gossm.New(sess)
 
 	printer := printer.New()
@@ -45,8 +50,53 @@ func doit(sess *session.Session, shellType, command string, quiet bool, timeout 
 
 	printer.PrintInfo(command, resp)
 
+	if files {
+		printToFiles(resp)
+	} else {
+		for msg := range resp.Channel {
+			printer.Print(msg)
+		}
+	}
+}
+
+func printToFiles(resp *gossm.DoitResponse) {
+	dir, err := filepath.Abs(resp.CommandId)
+	if err != nil {
+		panic(err)
+	}
+
+	err = os.Mkdir(dir, 0755)
+	if err != nil {
+		panic(err)
+	}
+
+	files := map[string]io.WriteCloser{}
+	for _, id := range resp.InstanceIds.InstanceIds {
+		fpath := filepath.Join(dir, fmt.Sprintf("%s.txt", id))
+		file, err := os.Create(fpath)
+		if err != nil {
+			panic(err)
+		}
+		files[id] = file
+	}
+
 	for msg := range resp.Channel {
-		printer.Print(msg)
+		file := files[msg.InstanceId]
+		_, err = file.Write([]byte(msg.StdoutChunk))
+		if err != nil {
+			panic(err)
+		}
+		_, err = file.Write([]byte(msg.StderrChunk))
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	for _, file := range files {
+		err = file.Close()
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
