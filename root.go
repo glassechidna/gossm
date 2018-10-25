@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/glassechidna/gossm/pkg/gossm"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -22,10 +21,6 @@ var RootCmd = &cobra.Command{
 		profile := viper.GetString("profile")
 		sess := AwsSession(profile, region)
 
-		bucket := viper.GetString("s3-bucket")
-		bucket = gossm.RealBucketName(sess, bucket)
-		//keyPrefix := viper.GetString("s3-key-prefix")
-
 		instanceIds, _ := cmd.PersistentFlags().GetStringSlice("instance-id")
 		tagPairs, _ := cmd.PersistentFlags().GetStringSlice("tag")
 
@@ -37,7 +32,7 @@ var RootCmd = &cobra.Command{
 			shell = "powershell"
 		}
 
-		doit(sess, shell, command, bucket, quiet, timeout, tagPairs, instanceIds)
+		doit(sess, shell, command, quiet, timeout, tagPairs, instanceIds)
 	},
 }
 
@@ -67,8 +62,6 @@ func init() {
 
 	RootCmd.PersistentFlags().String("profile", "", "")
 	RootCmd.PersistentFlags().String("region", "", "")
-	RootCmd.PersistentFlags().String("s3-bucket", "", "")
-	RootCmd.PersistentFlags().String("s3-key-prefix", "", "")
 	RootCmd.PersistentFlags().BoolP("powershell", "p", false, "")
 	RootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "")
 	RootCmd.PersistentFlags().StringSliceP("instance-id", "i", []string{}, "")
