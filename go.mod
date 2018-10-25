@@ -2,6 +2,7 @@ module github.com/glassechidna/gossm
 
 require (
 	github.com/aws/aws-sdk-go v1.15.60
+	github.com/boombuler/barcode v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.5.0
 	github.com/fsnotify/fsnotify v0.0.0-20170329110642-4da3e2cfbabc // indirect
@@ -27,6 +28,7 @@ require (
 	github.com/pelletier/go-toml v0.0.0-20170508001413-23f644976aa7 // indirect
 	github.com/pkg/errors v0.8.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pquerna/otp v1.0.0
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	github.com/smartystreets/goconvey v0.0.0-20180222194500-ef6db91d284a // indirect
 	github.com/spf13/afero v0.0.0-20170217164146-9be650865eab // indirect
