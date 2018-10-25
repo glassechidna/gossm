@@ -17,9 +17,9 @@ func AwsSession(profile, region string) *session.Session {
 	creds := credentials.NewCredentials(chain)
 
 	sessOpts := session.Options{
-		SharedConfigState: session.SharedConfigEnable,
+		SharedConfigState:       session.SharedConfigEnable,
 		AssumeRoleTokenProvider: stscreds.StdinTokenProvider,
-		Config: aws.Config{Credentials: creds},
+		Config:                  aws.Config{Credentials: creds},
 	}
 
 	if len(profile) > 0 {
@@ -49,12 +49,12 @@ func doit(sess *session.Session, shellType, command, bucket string, quiet bool, 
 	targets := gossm.MakeTargets(tagPairs, instanceIds)
 
 	input := &ssm.SendCommandInput{
-		DocumentName: &docName,
-		Targets: targets,
-		TimeoutSeconds: &timeout,
+		DocumentName:       &docName,
+		Targets:            targets,
+		TimeoutSeconds:     &timeout,
 		OutputS3BucketName: &bucket,
 		//OutputS3KeyPrefix: &keyPrefix,
-		Parameters: map[string][]*string {
+		Parameters: map[string][]*string{
 			"commands": aws.StringSlice([]string{command}),
 		},
 	}

@@ -20,27 +20,27 @@ import (
 type Client struct {
 	ssmApi ssmiface.SSMAPI
 	ec2Api ec2iface.EC2API
-	s3Api s3iface.S3API
+	s3Api  s3iface.S3API
 }
 
 type CommandInstanceIdsOutput struct {
-	InstanceIds []string
-	FaultyInstanceIds []string
+	InstanceIds              []string
+	FaultyInstanceIds        []string
 	WrongPlatformInstanceIds []string
 }
 
 type SsmMessage struct {
-	CommandId string
-	InstanceId string
-	StdoutChunk string
-	StderrChunk string
-	Error error
+	CommandId    string
+	InstanceId   string
+	StdoutChunk  string
+	StderrChunk  string
+	Error        error
 	InstanceDone bool
 }
 
 type DoitResponse struct {
-	Channel chan SsmMessage
-	CommandId string
+	Channel     chan SsmMessage
+	CommandId   string
 	InstanceIds CommandInstanceIdsOutput
 }
 
@@ -48,7 +48,7 @@ func New(sess *session.Session) *Client {
 	return &Client{
 		ssmApi: ssm.New(sess),
 		ec2Api: ec2.New(sess),
-		s3Api: s3.New(sess),
+		s3Api:  s3.New(sess),
 	}
 }
 
@@ -63,7 +63,9 @@ func stringInSlice(a string, list []string) bool {
 
 func (c *Client) getFromS3Url(urlString string) (*string, error) {
 	s3url, err := url.Parse(urlString)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	urlPath := s3url.Path
 	parts := strings.SplitN(urlPath, "/", 3)
@@ -98,7 +100,9 @@ func (c *Client) commandInstanceIds(commandId string) CommandInstanceIdsOutput {
 	listInput := &ssm.ListCommandInvocationsInput{CommandId: &commandId}
 
 	resp3, err := c.ssmApi.ListCommandInvocations(listInput)
-	if err != nil { log.Panicf(err.Error()) }
+	if err != nil {
+		log.Panicf(err.Error())
+	}
 
 	invocationMap := map[string]*ssm.CommandInvocation{}
 
@@ -144,8 +148,8 @@ func (c *Client) commandInstanceIds(commandId string) CommandInstanceIdsOutput {
 	}
 
 	return CommandInstanceIdsOutput{
-		InstanceIds: instanceIds,
-		FaultyInstanceIds: faulty,
+		InstanceIds:              instanceIds,
+		FaultyInstanceIds:        faulty,
 		WrongPlatformInstanceIds: wrongInstanceIds,
 	}
 }
@@ -163,8 +167,8 @@ func (c *Client) Doit(commandInput *ssm.SendCommandInput) (*DoitResponse, error)
 	instanceIds := c.commandInstanceIds(*commandId)
 
 	response := &DoitResponse{
-		Channel: make(chan SsmMessage),
-		CommandId: *commandId,
+		Channel:     make(chan SsmMessage),
+		CommandId:   *commandId,
 		InstanceIds: instanceIds,
 	}
 
@@ -205,7 +209,7 @@ func (c *Client) poll(commandId *string, resp *DoitResponse) {
 				time.Sleep(time.Second * 1)
 
 				msg := SsmMessage{
-					CommandId: *commandId,
+					CommandId:  *commandId,
 					InstanceId: instanceId,
 				}
 
@@ -242,5 +246,3 @@ func (c *Client) poll(commandId *string, resp *DoitResponse) {
 	}
 
 }
-
-
