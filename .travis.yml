@@ -13,8 +13,7 @@ install:
   - tar -xvf upx.txz
 
 script:
-  - go test ./...
-  - gox -arch="amd64" -os="windows linux darwin"
+  - make
 
 after_success:
   - upx-3.94-amd64_linux/upx gossm_*
