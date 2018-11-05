@@ -11,8 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
-	"log"
-	"math"
+	"github.com/glassechidna/gossm/pkg/cwlogs"
 	"strings"
 	"time"
 )
@@ -24,6 +23,7 @@ type Client struct {
 }
 
 type CommandInstanceIdsOutput struct {
+	DocumentName             string
 	InstanceIds              []string
 	FaultyInstanceIds        []string
 	WrongPlatformInstanceIds []string
@@ -39,15 +39,14 @@ type SsmMessage struct {
 }
 
 type DoitResponse struct {
-	Channel     chan SsmMessage
 	CommandId   string
-	InstanceIds CommandInstanceIdsOutput
+	InstanceIds *CommandInstanceIdsOutput
 }
 
 func New(sess *session.Session) *Client {
 	return &Client{
-		ssmApi: ssm.New(sess),
-		ec2Api: ec2.New(sess),
+		ssmApi:  ssm.New(sess),
+		ec2Api:  ec2.New(sess),
 		logsApi: cloudwatchlogs.New(sess),
 	}
 }
@@ -61,26 +60,33 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func (c *Client) commandInstanceIds(commandId string) CommandInstanceIdsOutput {
-	listInput := &ssm.ListCommandInvocationsInput{CommandId: &commandId}
+func (c *Client) commandInstanceIds(commandId string) (*CommandInstanceIdsOutput, error) {
+	invocations := []*ssm.CommandInvocation{}
 
-	resp3, err := c.ssmApi.ListCommandInvocations(listInput)
+	listInput := &ssm.ListCommandInvocationsInput{CommandId: &commandId}
+	err := c.ssmApi.ListCommandInvocationsPages(listInput, func(page *ssm.ListCommandInvocationsOutput, lastPage bool) bool {
+		invocations = append(invocations, page.CommandInvocations...)
+		return !lastPage
+	})
 	if err != nil {
-		log.Panicf(err.Error())
+		return nil, err
 	}
 
 	invocationMap := map[string]*ssm.CommandInvocation{}
 
 	instanceIds := []string{}
-	for _, invocation := range resp3.CommandInvocations {
+	for _, invocation := range invocations {
 		id := *invocation.InstanceId
 		instanceIds = append(instanceIds, id)
 		invocationMap[id] = invocation
 	}
 
-	instanceDescs, _ := c.ec2Api.DescribeInstances(&ec2.DescribeInstancesInput{
+	instanceDescs, err := c.ec2Api.DescribeInstances(&ec2.DescribeInstancesInput{
 		InstanceIds: aws.StringSlice(instanceIds),
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	liveInstanceIds := []string{}
 	wrongInstanceIds := []string{}
@@ -112,16 +118,16 @@ func (c *Client) commandInstanceIds(commandId string) CommandInstanceIdsOutput {
 		}
 	}
 
-	return CommandInstanceIdsOutput{
+	return &CommandInstanceIdsOutput{
+		DocumentName:             *invocations[0].DocumentName,
 		InstanceIds:              instanceIds,
 		FaultyInstanceIds:        faulty,
 		WrongPlatformInstanceIds: wrongInstanceIds,
-	}
+	}, nil
 }
 
 func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (*DoitResponse, error) {
 	resp, err := c.ssmApi.SendCommand(commandInput)
-
 	if err != nil {
 		return nil, err
 	}
@@ -129,27 +135,27 @@ func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (
 	time.Sleep(time.Second * 3)
 
 	commandId := resp.Command.CommandId
-	instanceIds := c.commandInstanceIds(*commandId)
+	instanceIds, err := c.commandInstanceIds(*commandId)
+	if err != nil {
+		return nil, err
+	}
 
 	response := &DoitResponse{
-		Channel:     make(chan SsmMessage),
 		CommandId:   *commandId,
 		InstanceIds: instanceIds,
 	}
 
-	go c.poll(ctx, resp, response)
 	return response, nil
 }
 
-func (c *Client) waitDone(ctx context.Context, commandId *string, resp *DoitResponse) {
+func (c *Client) waitDone(ctx context.Context, commandId string, outp *CommandInstanceIdsOutput) {
 	printedInstanceIds := []string{}
-	instanceIds := resp.InstanceIds
-	expectedResponseCount := len(instanceIds.InstanceIds) - len(instanceIds.FaultyInstanceIds) - len(instanceIds.WrongPlatformInstanceIds)
+	expectedResponseCount := len(outp.InstanceIds) - len(outp.FaultyInstanceIds) - len(outp.WrongPlatformInstanceIds)
 
 	for {
 		time.Sleep(time.Second * 3)
 
-		listInput := &ssm.ListCommandInvocationsInput{CommandId: commandId}
+		listInput := &ssm.ListCommandInvocationsInput{CommandId: &commandId}
 		resp3, err := c.ssmApi.ListCommandInvocations(listInput)
 
 		if err != nil {
@@ -159,8 +165,8 @@ func (c *Client) waitDone(ctx context.Context, commandId *string, resp *DoitResp
 		for _, invocation := range resp3.CommandInvocations {
 			instanceId := *invocation.InstanceId
 			if stringInSlice(instanceId, printedInstanceIds) ||
-				stringInSlice(instanceId, instanceIds.FaultyInstanceIds) ||
-				stringInSlice(instanceId, instanceIds.WrongPlatformInstanceIds) {
+				stringInSlice(instanceId, outp.FaultyInstanceIds) ||
+				stringInSlice(instanceId, outp.WrongPlatformInstanceIds) {
 				continue
 			}
 
@@ -195,70 +201,42 @@ func logEventToSsmMessage(event *cloudwatchlogs.FilteredLogEvent) SsmMessage {
 	return msg
 }
 
-func (c *Client) pollLogs(ctx context.Context, output *ssm.SendCommandOutput, resp *DoitResponse) {
-	commandId := output.Command.CommandId
-	group := fmt.Sprintf("/aws/ssm/%s", *output.Command.DocumentName)
+func (c *Client) pollLogs(ctx context.Context, commandId string, outp *CommandInstanceIdsOutput, ch chan SsmMessage) {
+	group := fmt.Sprintf("/aws/ssm/%s", outp.DocumentName)
 
 	input := &cloudwatchlogs.FilterLogEventsInput{
-		LogGroupName: &group,
-		LogStreamNamePrefix: commandId,
+		LogGroupName:        &group,
+		LogStreamNamePrefix: &commandId,
 	}
 
-	lastTimestamps := map[string]int64{}
-	for _, id := range resp.InstanceIds.InstanceIds {
-		lastTimestamps[id] = 0
-	}
+	cw := cwlogs.New(c.logsApi)
+	s := cw.Stream(ctx, input)
 
-	seenEvents := map[string]bool{}
-
-	for {
-		time.Sleep(time.Second)
-
-		err := c.logsApi.FilterLogEventsPagesWithContext(ctx, input, func(page *cloudwatchlogs.FilterLogEventsOutput, lastPage bool) bool {
-			for _, event := range page.Events {
-				msg := logEventToSsmMessage(event)
-
-				if _, ok := seenEvents[*event.EventId]; !ok {
-					resp.Channel <- msg
-					seenEvents[*event.EventId] = true
-				}
-
-				lastTimestamps[msg.InstanceId] = *event.Timestamp
-			}
-			return !lastPage
-		})
-		if err != nil && err != context.Canceled {
-			panic(err)
-		}
-
-		var lastTimestamp int64 = math.MaxInt64
-		for _, ts := range lastTimestamps {
-			if ts < lastTimestamp {
-				lastTimestamp = ts
-			}
-		}
-		lastTimestamp++
-		input.StartTime = &lastTimestamp
-
-		if ctx.Err() == context.Canceled {
-			break
-		}
+	for event := range s.Channel {
+		ch <- logEventToSsmMessage(event)
 	}
 }
 
-func (c *Client) poll(ctx context.Context, output *ssm.SendCommandOutput, resp *DoitResponse) {
-	defer close(resp.Channel)
+func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage) error {
+	defer close(ch)
 
 	newctx, cancel := context.WithCancel(ctx)
 
-	go c.pollLogs(newctx, output, resp)
-	c.waitDone(ctx, output.Command.CommandId, resp)
+	ids, err := c.commandInstanceIds(commandId)
+	if err != nil {
+		return err
+	}
+
+	go c.pollLogs(newctx, commandId, ids, ch)
+	c.waitDone(ctx, commandId, ids)
 
 	select {
 	case <-ctx.Done():
 		break
-	case <-time.After(5*time.Second):
+	case <-time.After(5 * time.Second):
 		cancel()
 		break
 	}
+
+	return nil
 }
