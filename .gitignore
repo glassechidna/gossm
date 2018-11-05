@@ -1,2 +1,8 @@
 /vendor
 /gossm
+/bin
+/node_modules
+/.env
+public/assets/
+*-packr.go
+/gossm_*
