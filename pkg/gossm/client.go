@@ -6,8 +6,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 	"github.com/glassechidna/gossm/pkg/cwlogs"
@@ -17,7 +15,6 @@ import (
 
 type Client struct {
 	ssmApi  ssmiface.SSMAPI
-	ec2Api  ec2iface.EC2API
 	logsApi cloudwatchlogsiface.CloudWatchLogsAPI
 	history *History
 }
@@ -41,13 +38,12 @@ type SsmMessage struct {
 
 type DoitResponse struct {
 	CommandId   string
-	InstanceIds *InstanceIds
+	Invocations Invocations
 }
 
 func New(sess *session.Session, history *History) *Client {
 	return &Client{
 		ssmApi:  ssm.New(sess),
-		ec2Api:  ec2.New(sess),
 		logsApi: cloudwatchlogs.New(sess),
 		history: history,
 	}
@@ -83,14 +79,9 @@ func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (
 		return nil, err
 	}
 
-	instanceIds, err := invocations.InstanceIds(c.ec2Api)
-	if err != nil {
-		return nil, err
-	}
-
 	response := &DoitResponse{
 		CommandId:   commandId,
-		InstanceIds: instanceIds,
+		Invocations: invocations,
 	}
 
 	return response, nil

@@ -20,7 +20,7 @@ type commandRequest struct {
 
 type commandResponse struct {
 	CommandId   string
-	InstanceIds []string
+	Invocations gossm.Invocations
 }
 
 func reqToAwsInput(req *commandRequest) *ssm.SendCommandInput {
@@ -86,7 +86,7 @@ func CommandHandler(c buffalo.Context) error {
 
 	return c.Render(200, r.JSON(commandResponse{
 		CommandId:   resp.CommandId,
-		InstanceIds: resp.InstanceIds.InstanceIds,
+		Invocations: resp.Invocations,
 	}))
 
 	//conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)

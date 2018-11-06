@@ -33,7 +33,7 @@ func (p *Printer) PrintInfo(command string, resp *gossm.DoitResponse) {
 	p.printInfo("Command: ", command)
 	p.printInfo("Command ID: ", resp.CommandId)
 
-	instanceIds := resp.InstanceIds.InstanceIds
+	instanceIds := resp.Invocations.InstanceIds()
 	prefix := fmt.Sprintf("Running command on %d instances: ", len(instanceIds))
 	p.printInfo(prefix, fmt.Sprintf("%+v", instanceIds))
 }
