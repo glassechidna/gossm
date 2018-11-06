@@ -17,6 +17,7 @@ require (
 	github.com/gobuffalo/packr v1.19.0
 	github.com/gobuffalo/suite v2.2.0+incompatible
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
+	github.com/gorilla/websocket v1.4.0
 	github.com/jackc/fake v0.0.0-20150926172116-812a484cc733 // indirect
 	github.com/jackc/pgx v3.2.0+incompatible // indirect
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
