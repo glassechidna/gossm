@@ -81,7 +81,7 @@ func (i Invocations) InstanceIds(ec2Api ec2iface.EC2API) (*InstanceIds, error) {
 				continue
 			}
 
-			if *instance.State.Name == "running" {
+			if *instance.State.Name == ec2.InstanceStateNameRunning {
 				liveInstanceIds = append(liveInstanceIds, *instance.InstanceId)
 			}
 		}
