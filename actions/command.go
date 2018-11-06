@@ -8,7 +8,6 @@ import (
 	"github.com/glassechidna/gossm/pkg/gossm"
 	"github.com/gobuffalo/buffalo"
 	"github.com/gorilla/websocket"
-	"sync"
 )
 
 type commandRequest struct {
@@ -62,24 +61,14 @@ func reqToAwsInput(req *commandRequest) *ssm.SendCommandInput {
 	}
 }
 
-var theClient *gossm.Client
-var clientOnce *sync.Once
-
-func client() *gossm.Client {
-	clientOnce.Do(func() {
-		theClient = gossm.New(nil, nil)
-	})
-	return theClient
-}
-
-func CommandHandler(c buffalo.Context) error {
+func commandPost(c buffalo.Context) error {
 	req := commandRequest{}
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
 
 	input := reqToAwsInput(&req)
-	resp, err := client().Doit(context.Background(), input)
+	resp, err := sess().client.Doit(context.Background(), input)
 	if err != nil {
 		panic(err)
 	}
@@ -124,6 +113,15 @@ func CommandHandler(c buffalo.Context) error {
 	//}()
 	//
 	//return nil
+}
+
+func commandList(c buffalo.Context) error {
+	cmds, err := sess().history.Commands()
+	if err != nil {
+		return err
+	}
+
+	return c.Render(200, r.JSON(cmds))
 }
 
 var upgrader = websocket.Upgrader{

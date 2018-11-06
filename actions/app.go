@@ -43,7 +43,8 @@ func App() *buffalo.App {
 		app.Use(csrf.New)
 
 		app.GET("/", HomeHandler)
-		app.POST("/api/commands", CommandHandler)
+		app.POST("/api/commands", commandPost)
+		app.GET("/api/commands", commandList)
 
 		app.ServeFiles("/", assetsBox) // serve files from the public directory
 	}
