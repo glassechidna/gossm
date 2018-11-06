@@ -12,7 +12,7 @@ func TestPrintWrappedWithNewLineAtEOF(t *testing.T) {
 	buf := &bytes.Buffer{}
 	p := New()
 
-	p.print(buf, aurora.BlueFg, gossm.SsmMessage{}, "hello world\n")
+	p.print(buf, aurora.BlueFg, gossm.SsmMessage{Payload: &gossm.SsmPayloadMessage{}}, "hello world\n")
 	str := buf.String()
 
 	expected := "\x1b[34m[] \x1b[0mhello world\n"
@@ -23,7 +23,7 @@ func TestPrintWrappedWithoutNewLineAtEOF(t *testing.T) {
 	buf := &bytes.Buffer{}
 	p := New()
 
-	p.print(buf, aurora.BlueFg, gossm.SsmMessage{}, "hello world")
+	p.print(buf, aurora.BlueFg, gossm.SsmMessage{Payload: &gossm.SsmPayloadMessage{}}, "hello world")
 	str := buf.String()
 
 	expected := "\x1b[34m[] \x1b[0mhello world\n"

@@ -16,10 +16,10 @@ func TestLogEventToSsmMessageStdout(t *testing.T) {
 		Message:       aws.String(" 21:39:20 up 3 days, 23:43,  0 users,  load average: 0.08, 0.03, 0.01"),
 	}
 	msg := logEventToSsmMessage(event)
-	assert.Equal(t, msg.InstanceId, "i-02a6983afe9f00d21")
+	assert.Equal(t, msg.Payload.InstanceId, "i-02a6983afe9f00d21")
 	assert.Equal(t, msg.CommandId, "7017174d-d284-486e-9dcb-22221883be98")
-	assert.Equal(t, msg.StdoutChunk, " 21:39:20 up 3 days, 23:43,  0 users,  load average: 0.08, 0.03, 0.01")
-	assert.Equal(t, msg.StderrChunk, "")
+	assert.Equal(t, msg.Payload.StdoutChunk, " 21:39:20 up 3 days, 23:43,  0 users,  load average: 0.08, 0.03, 0.01")
+	assert.Equal(t, msg.Payload.StderrChunk, "")
 
 }
 
@@ -32,8 +32,8 @@ func TestLogEventToSsmMessageStderr(t *testing.T) {
 		Message:       aws.String(" 21:39:20 up 3 days, 23:43,  0 users,  load average: 0.08, 0.03, 0.01"),
 	}
 	msg := logEventToSsmMessage(event)
-	assert.Equal(t, msg.InstanceId, "i-02a6983afe9f00d21")
+	assert.Equal(t, msg.Payload.InstanceId, "i-02a6983afe9f00d21")
 	assert.Equal(t, msg.CommandId, "7017174d-d284-486e-9dcb-22221883be98")
-	assert.Equal(t, msg.StderrChunk, " 21:39:20 up 3 days, 23:43,  0 users,  load average: 0.08, 0.03, 0.01")
-	assert.Equal(t, msg.StdoutChunk, "")
+	assert.Equal(t, msg.Payload.StderrChunk, " 21:39:20 up 3 days, 23:43,  0 users,  load average: 0.08, 0.03, 0.01")
+	assert.Equal(t, msg.Payload.StdoutChunk, "")
 }
