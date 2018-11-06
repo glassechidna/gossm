@@ -50,20 +50,22 @@ func (p *Printer) printInfo(prefix, info string) {
 }
 
 func (p *Printer) Print(msg gossm.SsmMessage) {
-	if len(msg.StdoutChunk) > 0 {
-		p.print(p.Out, p.outColors[0], msg, msg.StdoutChunk)
-	}
-
-	if len(msg.StderrChunk) > 0 {
-		p.print(p.Err, p.errColors[0], msg, msg.StderrChunk)
-	}
-
-	if !p.Quiet {
-		_, _ = fmt.Fprintln(p.Out) // split em out
-	}
-
 	if msg.Error != nil {
 		panic(msg.Error)
+	}
+
+	if msg.Payload != nil {
+		if len(msg.Payload.StdoutChunk) > 0 {
+			p.print(p.Out, p.outColors[0], msg, msg.Payload.StdoutChunk)
+		}
+
+		if len(msg.Payload.StderrChunk) > 0 {
+			p.print(p.Err, p.errColors[0], msg, msg.Payload.StderrChunk)
+		}
+
+		if !p.Quiet {
+			_, _ = fmt.Fprintln(p.Out) // split em out
+		}
 	}
 }
 
@@ -80,7 +82,7 @@ func (p *Printer) print(w io.Writer, prefixColor aurora.Color, msg gossm.SsmMess
 		termbox.Close()
 	}
 
-	prefix := aurora.Colorize(fmt.Sprintf("[%s] ", msg.InstanceId), prefixColor).String()
+	prefix := aurora.Colorize(fmt.Sprintf("[%s] ", msg.Payload.InstanceId), prefixColor).String()
 
 	outputWidth := windowWidth - len(prefix)
 	wrapped := wordwrap.WrapString(payload, uint(outputWidth))

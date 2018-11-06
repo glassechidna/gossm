@@ -3,7 +3,6 @@ package gossm
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
@@ -22,25 +21,26 @@ type Client struct {
 	logsApi cloudwatchlogsiface.CloudWatchLogsAPI
 }
 
-type CommandInstanceIdsOutput struct {
-	DocumentName             string
-	InstanceIds              []string
-	FaultyInstanceIds        []string
-	WrongPlatformInstanceIds []string
+type SsmPayloadMessage struct {
+	InstanceId  string
+	StdoutChunk string
+	StderrChunk string
+}
+
+type SsmControlMessage struct {
+	Invocations Invocations
 }
 
 type SsmMessage struct {
-	CommandId    string
-	InstanceId   string
-	StdoutChunk  string
-	StderrChunk  string
-	Error        error
-	InstanceDone bool
+	CommandId string
+	Error     error
+	Control   *SsmControlMessage
+	Payload   *SsmPayloadMessage
 }
 
 type DoitResponse struct {
 	CommandId   string
-	InstanceIds *CommandInstanceIdsOutput
+	InstanceIds *InstanceIds
 }
 
 func New(sess *session.Session) *Client {
@@ -60,72 +60,6 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func (c *Client) commandInstanceIds(commandId string) (*CommandInstanceIdsOutput, error) {
-	invocations := []*ssm.CommandInvocation{}
-
-	listInput := &ssm.ListCommandInvocationsInput{CommandId: &commandId}
-	err := c.ssmApi.ListCommandInvocationsPages(listInput, func(page *ssm.ListCommandInvocationsOutput, lastPage bool) bool {
-		invocations = append(invocations, page.CommandInvocations...)
-		return !lastPage
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	invocationMap := map[string]*ssm.CommandInvocation{}
-
-	instanceIds := []string{}
-	for _, invocation := range invocations {
-		id := *invocation.InstanceId
-		instanceIds = append(instanceIds, id)
-		invocationMap[id] = invocation
-	}
-
-	instanceDescs, err := c.ec2Api.DescribeInstances(&ec2.DescribeInstancesInput{
-		InstanceIds: aws.StringSlice(instanceIds),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	liveInstanceIds := []string{}
-	wrongInstanceIds := []string{}
-
-	for _, reservation := range instanceDescs.Reservations {
-		for _, instance := range reservation.Instances {
-			invocation := invocationMap[*instance.InstanceId]
-			docName := *invocation.DocumentName
-
-			if instance.Platform != nil && *instance.Platform == "windows" && docName != "AWS-RunPowerShellScript" {
-				wrongInstanceIds = append(wrongInstanceIds, *instance.InstanceId)
-				continue
-			} else if instance.Platform == nil /* linux */ && docName != "AWS-RunShellScript" {
-				wrongInstanceIds = append(wrongInstanceIds, *instance.InstanceId)
-				continue
-			}
-
-			if *instance.State.Name == "running" {
-				liveInstanceIds = append(liveInstanceIds, *instance.InstanceId)
-			}
-		}
-	}
-
-	faulty := []string{}
-
-	for _, instanceId := range instanceIds {
-		if !stringInSlice(instanceId, liveInstanceIds) && !stringInSlice(instanceId, wrongInstanceIds) {
-			faulty = append(faulty, instanceId)
-		}
-	}
-
-	return &CommandInstanceIdsOutput{
-		DocumentName:             *invocations[0].DocumentName,
-		InstanceIds:              instanceIds,
-		FaultyInstanceIds:        faulty,
-		WrongPlatformInstanceIds: wrongInstanceIds,
-	}, nil
-}
-
 func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (*DoitResponse, error) {
 	resp, err := c.ssmApi.SendCommand(commandInput)
 	if err != nil {
@@ -134,49 +68,119 @@ func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (
 
 	time.Sleep(time.Second * 3)
 
-	commandId := resp.Command.CommandId
-	instanceIds, err := c.commandInstanceIds(*commandId)
+	commandId := *resp.Command.CommandId
+
+	invocations := Invocations{}
+	err = invocations.AddFromSSM(c.ssmApi, commandId)
+	if err != nil {
+		return nil, err
+	}
+
+	instanceIds, err := invocations.InstanceIds(c.ec2Api)
 	if err != nil {
 		return nil, err
 	}
 
 	response := &DoitResponse{
-		CommandId:   *commandId,
+		CommandId:   commandId,
 		InstanceIds: instanceIds,
 	}
 
 	return response, nil
 }
 
-func (c *Client) waitDone(ctx context.Context, commandId string, outp *CommandInstanceIdsOutput) {
-	printedInstanceIds := []string{}
-	expectedResponseCount := len(outp.InstanceIds) - len(outp.FaultyInstanceIds) - len(outp.WrongPlatformInstanceIds)
+func (c *Client) pollStatusUntilDone(ctx context.Context, commandId string, ch chan Invocations) {
+	prev := Invocations{}
 
 	for {
 		time.Sleep(time.Second * 3)
 
-		listInput := &ssm.ListCommandInvocationsInput{CommandId: &commandId}
-		resp3, err := c.ssmApi.ListCommandInvocations(listInput)
-
+		invocations := Invocations{}
+		err := invocations.AddFromSSM(c.ssmApi, commandId)
 		if err != nil {
 			panic(err)
 		}
 
-		for _, invocation := range resp3.CommandInvocations {
-			instanceId := *invocation.InstanceId
-			if stringInSlice(instanceId, printedInstanceIds) ||
-				stringInSlice(instanceId, outp.FaultyInstanceIds) ||
-				stringInSlice(instanceId, outp.WrongPlatformInstanceIds) {
-				continue
-			}
-
-			if *invocation.Status != ssm.CommandInvocationStatusInProgress {
-				printedInstanceIds = append(printedInstanceIds, instanceId)
-			}
+		if len(invocations.CompletedSince(prev)) > 0 {
+			ch <- invocations
 		}
 
-		if len(printedInstanceIds) == expectedResponseCount || ctx.Err() == context.Canceled {
+		if invocations.AllComplete() {
 			return
+		}
+	}
+}
+
+func (c *Client) cwLogsInput(commandId string) (*cloudwatchlogs.FilterLogEventsInput, error) {
+	invs := Invocations{}
+	err := invs.AddFromSSM(c.ssmApi, commandId)
+	if err != nil {
+		return nil, err
+	}
+
+	docName := ""
+	for _, inv := range invs {
+		docName = *inv.DocumentName
+		break
+	}
+
+	group := fmt.Sprintf("/aws/ssm/%s", docName)
+	return &cloudwatchlogs.FilterLogEventsInput{
+		LogGroupName:        &group,
+		LogStreamNamePrefix: &commandId,
+	}, nil
+}
+
+func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage) error {
+	defer close(ch)
+
+	input, err := c.cwLogsInput(commandId)
+	if err != nil {
+		return err
+	}
+
+	cw := cwlogs.New(c.logsApi)
+	s := cw.Stream(ctx, input)
+
+	statusCh := make(chan Invocations)
+	prevStatus := Invocations{}
+	go c.pollStatusUntilDone(ctx, commandId, statusCh)
+
+	done := make(chan bool)
+
+	instanceCompleted := func(id string) {
+		// TODO: fix duplication
+		s.Ignore(strings.Join([]string{commandId, id, "aws-runShellScript", "stdout"}, "/"))
+		s.Ignore(strings.Join([]string{commandId, id, "aws-runShellScript", "stderr"}, "/"))
+		s.Ignore(strings.Join([]string{commandId, id, "aws-runPowerShellScript", "stdout"}, "/"))
+		s.Ignore(strings.Join([]string{commandId, id, "aws-runPowerShellScript", "stderr"}, "/"))
+	}
+
+	for {
+		select {
+		case event := <-s.Channel:
+			ch <- logEventToSsmMessage(event)
+		case invocations := <-statusCh:
+			ch <- SsmMessage{
+				CommandId: commandId,
+				Control: &SsmControlMessage{
+					Invocations: invocations,
+				},
+			}
+			changed := invocations.CompletedSince(prevStatus)
+			prevStatus = invocations
+			for id := range changed {
+				time.AfterFunc(5*time.Second, func() { instanceCompleted(id) })
+			}
+			if invocations.AllComplete() {
+				fmt.Println("started countdown")
+				time.AfterFunc(5*time.Second, func() { done <- true })
+			}
+		case <-ctx.Done():
+			fmt.Println("cancelled")
+			return nil
+		case <-done:
+			return nil
 		}
 	}
 }
@@ -189,54 +193,16 @@ func logEventToSsmMessage(event *cloudwatchlogs.FilteredLogEvent) SsmMessage {
 
 	msg := SsmMessage{
 		CommandId:  commandId,
-		InstanceId: instanceId,
+		Payload: &SsmPayloadMessage{
+			InstanceId: instanceId,
+		},
 	}
 
 	if isStdout {
-		msg.StdoutChunk = *event.Message
+		msg.Payload.StdoutChunk = *event.Message
 	} else {
-		msg.StderrChunk = *event.Message
+		msg.Payload.StderrChunk = *event.Message
 	}
 
 	return msg
-}
-
-func (c *Client) pollLogs(ctx context.Context, commandId string, outp *CommandInstanceIdsOutput, ch chan SsmMessage) {
-	group := fmt.Sprintf("/aws/ssm/%s", outp.DocumentName)
-
-	input := &cloudwatchlogs.FilterLogEventsInput{
-		LogGroupName:        &group,
-		LogStreamNamePrefix: &commandId,
-	}
-
-	cw := cwlogs.New(c.logsApi)
-	s := cw.Stream(ctx, input)
-
-	for event := range s.Channel {
-		ch <- logEventToSsmMessage(event)
-	}
-}
-
-func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage) error {
-	defer close(ch)
-
-	newctx, cancel := context.WithCancel(ctx)
-
-	ids, err := c.commandInstanceIds(commandId)
-	if err != nil {
-		return err
-	}
-
-	go c.pollLogs(newctx, commandId, ids, ch)
-	c.waitDone(ctx, commandId, ids)
-
-	select {
-	case <-ctx.Done():
-		break
-	case <-time.After(5 * time.Second):
-		cancel()
-		break
-	}
-
-	return nil
 }

@@ -50,16 +50,19 @@ func doit(sess *session.Session, shellType, command string, files, quiet bool, t
 
 	printer.PrintInfo(command, resp)
 
+	ch := make(chan gossm.SsmMessage)
+	go client.Poll(context.Background(), resp.CommandId, ch)
+
 	if files {
-		printToFiles(resp)
+		printToFiles(resp, ch)
 	} else {
-		for msg := range resp.Channel {
+		for msg := range ch {
 			printer.Print(msg)
 		}
 	}
 }
 
-func printToFiles(resp *gossm.DoitResponse) {
+func printToFiles(resp *gossm.DoitResponse, ch chan gossm.SsmMessage) {
 	dir, err := filepath.Abs(resp.CommandId)
 	if err != nil {
 		panic(err)
@@ -80,13 +83,16 @@ func printToFiles(resp *gossm.DoitResponse) {
 		files[id] = file
 	}
 
-	for msg := range resp.Channel {
-		file := files[msg.InstanceId]
-		_, err = file.Write([]byte(msg.StdoutChunk))
+	for msg := range ch {
+		if msg.Payload == nil {
+			continue
+		}
+		file := files[msg.Payload.InstanceId]
+		_, err = file.Write([]byte(msg.Payload.StdoutChunk))
 		if err != nil {
 			panic(err)
 		}
-		_, err = file.Write([]byte(msg.StderrChunk))
+		_, err = file.Write([]byte(msg.Payload.StderrChunk))
 		if err != nil {
 			panic(err)
 		}
