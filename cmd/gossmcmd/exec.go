@@ -2,6 +2,7 @@ package gossmcmd
 
 import (
 	"fmt"
+	"github.com/glassechidna/gossm/pkg/awssess"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"io/ioutil"
@@ -18,7 +19,7 @@ var execCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		region := viper.GetString("region")
 		profile := viper.GetString("profile")
-		sess := AwsSession(profile, region)
+		sess := awssess.AwsSession(profile, region)
 
 		instanceIds, _ := cmd.PersistentFlags().GetStringSlice("instance-id")
 		tagPairs, _ := cmd.PersistentFlags().GetStringSlice("tag")
