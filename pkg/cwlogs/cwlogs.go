@@ -23,8 +23,8 @@ func (c *CwLogs) Stream(ctx context.Context, input *cloudwatchlogs.FilterLogEven
 
 	cs := &cwStream{
 		Channel: make(chan *cloudwatchlogs.FilteredLogEvent),
-		Sleep: time.Second,
-		mut: &sync.Mutex{},
+		Sleep:   time.Second,
+		mut:     &sync.Mutex{},
 	}
 
 	go func() {
@@ -71,9 +71,9 @@ func (c *CwLogs) Stream(ctx context.Context, input *cloudwatchlogs.FilterLogEven
 
 type cwStream struct {
 	Channel chan *cloudwatchlogs.FilteredLogEvent
-	Sleep time.Duration
+	Sleep   time.Duration
 	ignored []string
-	mut *sync.Mutex
+	mut     *sync.Mutex
 }
 
 func (cs *cwStream) Ignore(logStreamName string) {

@@ -42,4 +42,3 @@ func AwsSession(profile, region string) *session.Session {
 
 	return sess
 }
-

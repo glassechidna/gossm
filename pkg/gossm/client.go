@@ -192,7 +192,7 @@ func logEventToSsmMessage(event *cloudwatchlogs.FilteredLogEvent) SsmMessage {
 	isStdout := bits[3] == "stdout"
 
 	msg := SsmMessage{
-		CommandId:  commandId,
+		CommandId: commandId,
 		Payload: &SsmPayloadMessage{
 			InstanceId: instanceId,
 		},

@@ -12,7 +12,6 @@ import (
 
 var quiet bool
 
-
 var execCmd = &cobra.Command{
 	Use:   "exec",
 	Short: "Run commands on remote machines using EC2 SSM Run Command",

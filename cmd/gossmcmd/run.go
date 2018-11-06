@@ -27,9 +27,9 @@ func doit(sess *session.Session, shellType, command string, files, quiet bool, t
 	targets := gossm.MakeTargets(tagPairs, instanceIds)
 
 	input := &ssm.SendCommandInput{
-		DocumentName:       &docName,
-		Targets:            targets,
-		TimeoutSeconds:     &timeout,
+		DocumentName:   &docName,
+		Targets:        targets,
+		TimeoutSeconds: &timeout,
 		CloudWatchOutputConfig: &ssm.CloudWatchOutputConfig{
 			CloudWatchOutputEnabled: aws.Bool(true),
 		},
