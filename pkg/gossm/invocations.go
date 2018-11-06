@@ -58,13 +58,17 @@ func (i Invocations) InstanceIds(ec2Api ec2iface.EC2API) (*InstanceIds, error) {
 		allIds = append(allIds, id)
 	}
 
+	var reservations []*ec2.Reservation
 	descInput := &ec2.DescribeInstancesInput{InstanceIds: aws.StringSlice(allIds)}
-	instanceDescs, err := ec2Api.DescribeInstances(descInput)
+	err := ec2Api.DescribeInstancesPages(descInput, func(page *ec2.DescribeInstancesOutput, lastPage bool) bool {
+		reservations = append(reservations, page.Reservations...)
+		return !lastPage
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, reservation := range instanceDescs.Reservations {
+	for _, reservation := range reservations {
 		for _, instance := range reservation.Instances {
 			invocation := i[*instance.InstanceId]
 			docName := *invocation.DocumentName
