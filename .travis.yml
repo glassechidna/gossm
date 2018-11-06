@@ -9,7 +9,7 @@ env:
 install:
   - go mod download
   - go install github.com/mitchellh/gox
-  - go install github.com/gobuffalo/packr
+  - go install github.com/gobuffalo/packr/packr
   - curl -sL -o upx.txz https://github.com/upx/upx/releases/download/v3.94/upx-3.94-amd64_linux.tar.xz
   - tar -xvf upx.txz
 
