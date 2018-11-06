@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 )
 
-func doit(sess *session.Session, shellType, command string, files, quiet bool, timeout int64, tagPairs, instanceIds []string) {
-	client := gossm.New(sess)
+func doit(sess *session.Session, history *gossm.History, shellType, command string, files, quiet bool, timeout int64, tagPairs, instanceIds []string) {
+	client := gossm.New(sess, history)
 
 	printer := printer.New()
 	printer.Quiet = quiet

@@ -3,6 +3,7 @@ package gossmcmd
 import (
 	"fmt"
 	"github.com/glassechidna/gossm/pkg/awssess"
+	"github.com/glassechidna/gossm/pkg/gossm"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"io/ioutil"
@@ -32,8 +33,16 @@ var execCmd = &cobra.Command{
 		}
 		files := viper.GetBool("files")
 
-		doit(sess, shell, command, files, quiet, timeout, tagPairs, instanceIds)
+		doit(sess, defaultHistory(), shell, command, files, quiet, timeout, tagPairs, instanceIds)
 	},
+}
+
+func defaultHistory() *gossm.History {
+	history, err := gossm.NewHistory("foo.db")
+	if err != nil {
+		panic(err)
+	}
+	return history
 }
 
 func getCommandInput(argv []string) string {

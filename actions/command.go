@@ -67,7 +67,7 @@ var clientOnce *sync.Once
 
 func client() *gossm.Client {
 	clientOnce.Do(func() {
-		theClient = gossm.New(nil)
+		theClient = gossm.New(nil, nil)
 	})
 	return theClient
 }

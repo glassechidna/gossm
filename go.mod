@@ -24,6 +24,7 @@ require (
 	github.com/logrusorgru/aurora v0.0.0-20181002194514-a7b3b318ed4e
 	github.com/magiconair/properties v1.8.0
 	github.com/mattn/go-runewidth v0.0.3 // indirect
+	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/mitchellh/go-wordwrap v1.0.0
 	github.com/mitchellh/gox v0.4.0
 	github.com/mitchellh/iochan v1.0.0 // indirect
@@ -35,6 +36,7 @@ require (
 	github.com/smartystreets/goconvey v0.0.0-20180222194500-ef6db91d284a // indirect
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.2.1
+	github.com/stretchr/testify v1.2.2
 	github.com/unrolled/secure v0.0.0-20181022170031-4b6b7cf51606
 	golang.org/x/sys v0.0.0-20181031143558-9b800f95dbbc // indirect
 	gopkg.in/ini.v1 v1.39.0 // indirect

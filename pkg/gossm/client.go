@@ -19,6 +19,7 @@ type Client struct {
 	ssmApi  ssmiface.SSMAPI
 	ec2Api  ec2iface.EC2API
 	logsApi cloudwatchlogsiface.CloudWatchLogsAPI
+	history *History
 }
 
 type SsmPayloadMessage struct {
@@ -43,11 +44,12 @@ type DoitResponse struct {
 	InstanceIds *InstanceIds
 }
 
-func New(sess *session.Session) *Client {
+func New(sess *session.Session, history *History) *Client {
 	return &Client{
 		ssmApi:  ssm.New(sess),
 		ec2Api:  ec2.New(sess),
 		logsApi: cloudwatchlogs.New(sess),
+		history: history,
 	}
 }
 
@@ -72,6 +74,11 @@ func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (
 
 	invocations := Invocations{}
 	err = invocations.AddFromSSM(c.ssmApi, commandId)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.history.PutCommand(resp.Command, invocations)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +166,9 @@ func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage)
 	for {
 		select {
 		case event := <-s.Channel:
-			ch <- logEventToSsmMessage(event)
+			msg := logEventToSsmMessage(event)
+			err = c.history.AppendPayload(msg)
+			ch <- msg
 		case invocations := <-statusCh:
 			ch <- SsmMessage{
 				CommandId: commandId,
