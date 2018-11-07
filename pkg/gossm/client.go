@@ -49,15 +49,6 @@ func New(sess *session.Session, history *History) *Client {
 	}
 }
 
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (*DoitResponse, error) {
 	resp, err := c.ssmApi.SendCommand(commandInput)
 	if err != nil {
