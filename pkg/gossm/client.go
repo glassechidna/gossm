@@ -26,7 +26,7 @@ type SsmPayloadMessage struct {
 }
 
 type SsmControlMessage struct {
-	Invocations Invocations
+	Status Status
 }
 
 type SsmMessage struct {
@@ -34,11 +34,6 @@ type SsmMessage struct {
 	Error     error
 	Control   *SsmControlMessage
 	Payload   *SsmPayloadMessage
-}
-
-type DoitResponse struct {
-	CommandId   string
-	Invocations Invocations
 }
 
 func New(sess *session.Session, history *History) *Client {
@@ -49,7 +44,12 @@ func New(sess *session.Session, history *History) *Client {
 	}
 }
 
-func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (*DoitResponse, error) {
+type Status struct {
+	Command     *ssm.Command
+	Invocations Invocations
+}
+
+func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (*Status, error) {
 	resp, err := c.ssmApi.SendCommand(commandInput)
 	if err != nil {
 		return nil, err
@@ -57,10 +57,8 @@ func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (
 
 	time.Sleep(time.Second * 3)
 
-	commandId := *resp.Command.CommandId
-
 	invocations := Invocations{}
-	err = invocations.AddFromSSM(c.ssmApi, commandId)
+	err = invocations.AddFromSSM(c.ssmApi, *resp.Command.CommandId)
 	if err != nil {
 		return nil, err
 	}
@@ -70,20 +68,15 @@ func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (
 		return nil, err
 	}
 
-	response := &DoitResponse{
-		CommandId:   commandId,
+	response := &Status{
+		Command:     resp.Command,
 		Invocations: invocations,
 	}
 
 	return response, nil
 }
 
-type status struct {
-	command     *ssm.Command
-	invocations Invocations
-}
-
-func (c *Client) pollStatusUntilDone(ctx context.Context, commandId string, ch chan status) {
+func (c *Client) pollStatusUntilDone(ctx context.Context, commandId string, ch chan Status) {
 	prev := Invocations{}
 
 	for {
@@ -101,7 +94,7 @@ func (c *Client) pollStatusUntilDone(ctx context.Context, commandId string, ch c
 		}
 
 		if len(invocations.CompletedSince(prev)) > 0 {
-			ch <- status{command: resp.Commands[0], invocations: invocations}
+			ch <- Status{Command: resp.Commands[0], Invocations: invocations}
 		}
 
 		if invocations.AllComplete() {
@@ -141,7 +134,7 @@ func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage)
 	cw := cwlogs.New(c.logsApi)
 	s := cw.Stream(ctx, input)
 
-	statusCh := make(chan status)
+	statusCh := make(chan Status)
 	prevStatus := Invocations{}
 	go c.pollStatusUntilDone(ctx, commandId, statusCh)
 
@@ -164,20 +157,18 @@ func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage)
 		case status := <-statusCh:
 			ch <- SsmMessage{
 				CommandId: commandId,
-				Control: &SsmControlMessage{
-					Invocations: status.invocations,
-				},
+				Control:   &SsmControlMessage{Status: status},
 			}
-			err = c.history.PutCommand(status.command, status.invocations)
+			err = c.history.PutCommand(status.Command, status.Invocations)
 			if err != nil {
 				return err
 			}
-			changed := status.invocations.CompletedSince(prevStatus)
-			prevStatus = status.invocations
+			changed := status.Invocations.CompletedSince(prevStatus)
+			prevStatus = status.Invocations
 			for id := range changed {
 				time.AfterFunc(5*time.Second, func() { instanceCompleted(id) })
 			}
-			if status.invocations.AllComplete() {
+			if status.Invocations.AllComplete() {
 				time.AfterFunc(5*time.Second, func() { done <- true })
 			}
 		case <-ctx.Done():

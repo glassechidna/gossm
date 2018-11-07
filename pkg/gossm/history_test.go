@@ -24,6 +24,6 @@ func TestTableCreation(t *testing.T) {
 	_, err = db.Query("select * from commands")
 	assert.NoError(t, err)
 
-	_, err = db.Query("select * from invocations")
+	_, err = db.Query("select * from Invocations")
 	assert.NoError(t, err)
 }

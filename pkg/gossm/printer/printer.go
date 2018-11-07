@@ -29,7 +29,7 @@ func New() *Printer {
 	}
 }
 
-func (p *Printer) PrintInfo(command string, resp *gossm.DoitResponse) {
+func (p *Printer) PrintInfo(command string, invocations gossm.Invocations) {
 	p.printInfo("Command: ", command)
 	p.printInfo("Command ID: ", resp.CommandId)
 

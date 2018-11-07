@@ -17,12 +17,12 @@ func NewHistory(path string) (*History, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec(`create table if not exists commands (commandId text primary key, commandJson text, invocations text, complete bool);`)
+	_, err = db.Exec(`create table if not exists commands (commandId text primary key, commandJson text, Invocations text, complete bool);`)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = db.Exec(`create table if not exists invocations (commandId text, instanceId text, stdout text, stderr text, primary key (commandId, instanceId));`)
+	_, err = db.Exec(`create table if not exists Invocations (commandId text, instanceId text, stdout text, stderr text, primary key (commandId, instanceId));`)
 	if err != nil {
 		return nil, err
 	}
@@ -36,16 +36,14 @@ func (h *History) Close() error {
 	return h.db.Close()
 }
 
-func (h *History) PutCommand(command *ssm.Command, invocations Invocations) error {
-	if command != nil {
-		bytes, err := json.Marshal(command)
-		if err != nil {
-			return err
-		}
-		_, err = h.db.Exec(`insert into commands (commandId, commandJson) values(?, ?) on conflict(commandId) do update set commandJson = excluded.commandJson`, *command.CommandId, bytes)
-		if err != nil {
-			return err
-		}
+func (h *History) PutCommand(status *Status) error {
+	bytes, err := json.Marshal(command)
+	if err != nil {
+		return err
+	}
+	_, err = h.db.Exec(`insert into commands (commandId, commandJson) values(?, ?) on conflict(commandId) do update set commandJson = excluded.commandJson`, *command.CommandId, bytes)
+	if err != nil {
+		return err
 	}
 
 	if len(invocations) > 0 {
@@ -54,7 +52,7 @@ func (h *History) PutCommand(command *ssm.Command, invocations Invocations) erro
 			commandId = *inv.CommandId
 		}
 		bytes, _ := json.Marshal(invocations)
-		_, err := h.db.Exec(`insert into commands (commandId, invocations) values(?, ?) on conflict(commandId) do update set invocations = excluded.invocations`, commandId, bytes)
+		_, err := h.db.Exec(`insert into commands (commandId, Invocations) values(?, ?) on conflict(commandId) do update set Invocations = excluded.Invocations`, commandId, bytes)
 		if err != nil {
 			return err
 		}
@@ -65,7 +63,7 @@ func (h *History) PutCommand(command *ssm.Command, invocations Invocations) erro
 
 func (h *History) AppendPayload(msg SsmMessage) error {
 	_, err := h.db.Exec(`
-		insert into invocations (commandId, instanceId, stdout, stderr) 
+		insert into Invocations (commandId, instanceId, stdout, stderr) 
 		values (?, ?, ?, ?) 
 		on conflict (commandId, instanceId) do update set stdout = stdout || excluded.stdout, stderr = stderr || excluded.stderr
 	`, msg.CommandId, msg.Payload.InstanceId, msg.Payload.StdoutChunk, msg.Payload.StderrChunk)
@@ -78,7 +76,7 @@ type HistoricalCommand struct {
 }
 
 func (h *History) Commands() ([]HistoricalCommand, error) {
-	rows, err := h.db.Query(`select commandJson, invocations from commands`)
+	rows, err := h.db.Query(`select commandJson, Invocations from commands`)
 	if err != nil {
 		return nil, err
 	}
@@ -113,13 +111,14 @@ func (h *History) Commands() ([]HistoricalCommand, error) {
 }
 
 type HistoricalOutput struct {
+	CommandId  string
 	InstanceId string
 	Stdout     string
 	Stderr     string
 }
 
 func (h *History) CommandOutputs(commandId string) ([]HistoricalOutput, error) {
-	rows, err := h.db.Query(`select instanceId, stdout, stderr from invocations where commandId = ?`, commandId)
+	rows, err := h.db.Query(`select instanceId, stdout, stderr from Invocations where commandId = ?`, commandId)
 	if err != nil {
 		return nil, err
 	}
@@ -138,4 +137,26 @@ func (h *History) CommandOutputs(commandId string) ([]HistoricalOutput, error) {
 	}
 
 	return outputs, nil
+}
+
+func (c *HistoricalCommand) Stream(outputs []HistoricalOutput, ch chan SsmMessage) {
+	defer close(ch)
+
+	for _, o := range outputs {
+		ch <- SsmMessage{
+			CommandId: o.CommandId,
+			Payload: &SsmPayloadMessage{
+				InstanceId:  o.InstanceId,
+				StdoutChunk: o.Stdout,
+				StderrChunk: o.Stderr,
+			},
+		}
+	}
+
+	ch <- SsmMessage{
+		CommandId: *c.Command.CommandId,
+		Control: &SsmControlMessage{
+			Invocations: c.Invocations,
+		},
+	}
 }

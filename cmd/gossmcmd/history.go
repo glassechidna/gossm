@@ -3,9 +3,11 @@ package gossmcmd
 import (
 	"fmt"
 	"github.com/apcera/termtables"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/dustin/go-humanize"
 	"github.com/glassechidna/gossm/pkg/gossm"
+	"github.com/glassechidna/gossm/pkg/gossm/printer"
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 )
@@ -23,7 +25,7 @@ var historyCmd = &cobra.Command{
 		if len(args) == 0 {
 			historyOverview(cmds)
 		} else if len(args) == 1 {
-			panic("not implemented yet")
+			historyShow(cmds, args[0])
 		}
 	},
 }
@@ -57,6 +59,29 @@ func historyOverview(cmds []gossm.HistoricalCommand) {
 	}
 
 	fmt.Println(table.Render())
+}
+
+func historyShow(h *gossm.History, cmds []gossm.HistoricalCommand, cmdId string) {
+	var theCmd gossm.HistoricalCommand
+
+	for _, cmd := range cmds {
+		cmd := cmd
+		if *cmd.Command.CommandId == cmdId {
+			theCmd = cmd
+		}
+	}
+
+	printer := printer.New()
+	printer.Quiet = quiet
+
+	printer.PrintInfo(theCmd, nil)
+
+	ch := make(chan gossm.SsmMessage)
+	go theCmd.Stream()
+
+	for msg := range ch {
+		printer.Print(msg)
+	}
 }
 
 func init() {
