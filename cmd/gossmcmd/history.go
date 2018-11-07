@@ -32,7 +32,8 @@ func historyOverview(cmds []gossm.HistoricalCommand) {
 	table := termtables.CreateTable()
 	table.AddHeaders("Timestamp", "Command ID", "Status", "Command")
 
-	for _, cmd := range cmds {
+	for idx := range cmds {
+		cmd := cmds[len(cmds)-1-idx]
 		input := *cmd.Command.Parameters["commands"][0]
 		timestamp := humanize.Time(*cmd.Command.RequestedDateTime)
 		cmdId := *cmd.Command.CommandId
