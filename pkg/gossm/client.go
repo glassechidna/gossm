@@ -78,20 +78,30 @@ func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (
 	return response, nil
 }
 
-func (c *Client) pollStatusUntilDone(ctx context.Context, commandId string, ch chan Invocations) {
+type status struct {
+	command     *ssm.Command
+	invocations Invocations
+}
+
+func (c *Client) pollStatusUntilDone(ctx context.Context, commandId string, ch chan status) {
 	prev := Invocations{}
 
 	for {
 		time.Sleep(time.Second * 3)
 
+		resp, err := c.ssmApi.ListCommands(&ssm.ListCommandsInput{CommandId: &commandId})
+		if err != nil {
+			panic(err)
+		}
+
 		invocations := Invocations{}
-		err := invocations.AddFromSSM(c.ssmApi, commandId)
+		err = invocations.AddFromSSM(c.ssmApi, commandId)
 		if err != nil {
 			panic(err)
 		}
 
 		if len(invocations.CompletedSince(prev)) > 0 {
-			ch <- invocations
+			ch <- status{command: resp.Commands[0], invocations: invocations}
 		}
 
 		if invocations.AllComplete() {
@@ -131,7 +141,7 @@ func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage)
 	cw := cwlogs.New(c.logsApi)
 	s := cw.Stream(ctx, input)
 
-	statusCh := make(chan Invocations)
+	statusCh := make(chan status)
 	prevStatus := Invocations{}
 	go c.pollStatusUntilDone(ctx, commandId, statusCh)
 
@@ -151,24 +161,26 @@ func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage)
 			msg := logEventToSsmMessage(event)
 			err = c.history.AppendPayload(msg)
 			ch <- msg
-		case invocations := <-statusCh:
+		case status := <-statusCh:
 			ch <- SsmMessage{
 				CommandId: commandId,
 				Control: &SsmControlMessage{
-					Invocations: invocations,
+					Invocations: status.invocations,
 				},
 			}
-			changed := invocations.CompletedSince(prevStatus)
-			prevStatus = invocations
+			err = c.history.PutCommand(status.command, status.invocations)
+			if err != nil {
+				return err
+			}
+			changed := status.invocations.CompletedSince(prevStatus)
+			prevStatus = status.invocations
 			for id := range changed {
 				time.AfterFunc(5*time.Second, func() { instanceCompleted(id) })
 			}
-			if invocations.AllComplete() {
-				fmt.Println("started countdown")
+			if status.invocations.AllComplete() {
 				time.AfterFunc(5*time.Second, func() { done <- true })
 			}
 		case <-ctx.Done():
-			fmt.Println("cancelled")
 			return nil
 		case <-done:
 			return nil

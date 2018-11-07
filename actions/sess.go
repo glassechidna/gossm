@@ -10,6 +10,7 @@ type GossmSession struct {
 	history *gossm.History
 	client  *gossm.Client
 }
+
 var sessOnce *sync.Once
 var gossmSession *GossmSession
 
@@ -19,9 +20,8 @@ func sess() *GossmSession {
 		sess := awssess.AwsSession("", "")
 		gossmSession = &GossmSession{
 			history: h,
-			client: gossm.New(sess, h),
+			client:  gossm.New(sess, h),
 		}
 	})
 	return gossmSession
 }
-

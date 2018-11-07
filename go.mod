@@ -1,10 +1,12 @@
 module github.com/glassechidna/gossm
 
 require (
+	github.com/apcera/termtables v0.0.0-20170405184538-bcbc5dc54055
 	github.com/aws/aws-sdk-go v1.15.68
 	github.com/boombuler/barcode v1.0.0 // indirect
 	github.com/cockroachdb/apd v1.1.0 // indirect
 	github.com/cockroachdb/cockroach-go v0.0.0-20181001143604-e0a95dfd547c // indirect
+	github.com/dustin/go-humanize v1.0.0
 	github.com/glassechidna/awscredcache v0.0.0-20180324063114-8def02b6f71b
 	github.com/go-ini/ini v1.39.0 // indirect
 	github.com/gobuffalo/buffalo v0.13.4
