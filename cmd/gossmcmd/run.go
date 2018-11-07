@@ -69,7 +69,7 @@ func printToFiles(resp *gossm.DoitResponse, ch chan gossm.SsmMessage) {
 	}
 
 	files := map[string]io.WriteCloser{}
-	for _, id := range resp.InstanceIds.InstanceIds {
+	for _, id := range resp.Invocations.InstanceIds() {
 		fpath := filepath.Join(dir, fmt.Sprintf("%s.txt", id))
 		file, err := os.Create(fpath)
 		if err != nil {
