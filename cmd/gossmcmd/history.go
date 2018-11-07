@@ -5,6 +5,7 @@ import (
 	"github.com/apcera/termtables"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/dustin/go-humanize"
+	"github.com/glassechidna/gossm/pkg/gossm"
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 )
@@ -19,34 +20,42 @@ var historyCmd = &cobra.Command{
 			panic(err)
 		}
 
-		table := termtables.CreateTable()
-		table.AddHeaders("Timestamp", "Command ID", "Status", "Command")
+		if len(args) == 0 {
+			historyOverview(cmds)
+		} else if len(args) == 1 {
+			panic("not implemented yet")
+		}
+	},
+}
 
-		for _, cmd := range cmds {
-			input := *cmd.Command.Parameters["commands"][0]
-			timestamp := humanize.Time(*cmd.Command.RequestedDateTime)
-			cmdId := *cmd.Command.CommandId
-			total := *cmd.Command.TargetCount
-			var success int64 = 0
+func historyOverview(cmds []gossm.HistoricalCommand) {
+	table := termtables.CreateTable()
+	table.AddHeaders("Timestamp", "Command ID", "Status", "Command")
 
-			for _, inv := range cmd.Invocations {
-				if *inv.Status == ssm.CommandInvocationStatusSuccess {
-					success++
-				}
+	for _, cmd := range cmds {
+		input := *cmd.Command.Parameters["commands"][0]
+		timestamp := humanize.Time(*cmd.Command.RequestedDateTime)
+		cmdId := *cmd.Command.CommandId
+		total := *cmd.Command.TargetCount
+		var success int64 = 0
+
+		for _, inv := range cmd.Invocations {
+			if *inv.Status == ssm.CommandInvocationStatusSuccess {
+				success++
 			}
-
-			icon := aurora.Green("✔")
-			if success == 0 {
-				icon = aurora.Red("✗")
-			} else if success < total {
-				icon = aurora.Cyan("!")
-			}
-			status := fmt.Sprintf("%s (%d/%d)", icon.String(), success, total)
-			table.AddRow(timestamp, cmdId, status, input)
 		}
 
-		fmt.Println(table.Render())
-	},
+		icon := aurora.Green("✔")
+		if success == 0 {
+			icon = aurora.Red("✗")
+		} else if success < total {
+			icon = aurora.Cyan("!")
+		}
+		status := fmt.Sprintf("%s (%d/%d)", icon.String(), success, total)
+		table.AddRow(timestamp, cmdId, status, input)
+	}
+
+	fmt.Println(table.Render())
 }
 
 func init() {
