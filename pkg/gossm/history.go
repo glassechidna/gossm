@@ -17,12 +17,12 @@ func NewHistory(path string) (*History, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec(`create table if not exists commands (commandId text primary key, commandJson text, Invocations text, complete bool);`)
+	_, err = db.Exec(`create table if not exists commands (commandId text primary key, commandJson text, invocations text, complete bool);`)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = db.Exec(`create table if not exists Invocations (commandId text, instanceId text, stdout text, stderr text, primary key (commandId, instanceId));`)
+	_, err = db.Exec(`create table if not exists invocations (commandId text, instanceId text, stdout text, stderr text, primary key (commandId, instanceId));`)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (h *History) PutCommand(status Status) error {
 	}
 
 	bytes, _ = json.Marshal(status.Invocations)
-	_, err = h.db.Exec(`insert into commands (commandId, Invocations) values(?, ?) on conflict(commandId) do update set Invocations = excluded.Invocations`, commandId, bytes)
+	_, err = h.db.Exec(`insert into commands (commandId, invocations) values(?, ?) on conflict(commandId) do update set invocations = excluded.Invocations`, commandId, bytes)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ type HistoricalStatus struct {
 }
 
 func (h *History) Commands() ([]HistoricalStatus, error) {
-	rows, err := h.db.Query(`select commandJson, Invocations from commands`)
+	rows, err := h.db.Query(`select commandJson, invocations from commands`)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ type HistoricalOutput struct {
 }
 
 func (h *History) CommandOutputs(commandId string) ([]HistoricalOutput, error) {
-	rows, err := h.db.Query(`select instanceId, stdout, stderr from Invocations where commandId = ?`, commandId)
+	rows, err := h.db.Query(`select instanceId, stdout, stderr from invocations where commandId = ?`, commandId)
 	if err != nil {
 		return nil, err
 	}
