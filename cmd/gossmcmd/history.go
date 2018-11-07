@@ -73,14 +73,13 @@ func (h *historyUi) show(cmdId string) {
 		}
 	}
 
-	outputs, _ := h.CommandOutputs(cmdId)
-
 	printer := printer.New()
 	printer.Quiet = quiet
 
 	printer.PrintInfo(status.Status)
 
 	ch := make(chan gossm.SsmMessage)
+	outputs, _ := h.CommandOutputs(cmdId)
 	go status.Stream(outputs, ch)
 
 	for msg := range ch {
