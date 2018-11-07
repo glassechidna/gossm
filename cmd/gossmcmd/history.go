@@ -3,7 +3,6 @@ package gossmcmd
 import (
 	"fmt"
 	"github.com/apcera/termtables"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/dustin/go-humanize"
 	"github.com/glassechidna/gossm/pkg/gossm"
@@ -16,21 +15,23 @@ var historyCmd = &cobra.Command{
 	Use:   "history",
 	Short: "Show previously-executed commands",
 	Run: func(cmd *cobra.Command, args []string) {
-		h := defaultHistory()
-		cmds, err := h.Commands()
-		if err != nil {
-			panic(err)
-		}
+		h := &historyUi{defaultHistory()}
 
 		if len(args) == 0 {
-			historyOverview(cmds)
+			h.overview()
 		} else if len(args) == 1 {
-			historyShow(cmds, args[0])
+			h.show(args[0])
 		}
 	},
 }
 
-func historyOverview(cmds []gossm.HistoricalCommand) {
+type historyUi struct {
+	*gossm.History
+}
+
+func (h *historyUi) overview() {
+	cmds, _ := h.Commands()
+
 	table := termtables.CreateTable()
 	table.AddHeaders("Timestamp", "Command ID", "Status", "Command")
 
@@ -61,23 +62,26 @@ func historyOverview(cmds []gossm.HistoricalCommand) {
 	fmt.Println(table.Render())
 }
 
-func historyShow(h *gossm.History, cmds []gossm.HistoricalCommand, cmdId string) {
-	var theCmd gossm.HistoricalCommand
+func (h *historyUi) show(cmdId string) {
+	cmds, _ := h.Commands()
+	var status gossm.HistoricalStatus
 
-	for _, cmd := range cmds {
-		cmd := cmd
-		if *cmd.Command.CommandId == cmdId {
-			theCmd = cmd
+	for _, c := range cmds {
+		c := c
+		if *c.Command.CommandId == cmdId {
+			status = c
 		}
 	}
+
+	outputs, _ := h.CommandOutputs(cmdId)
 
 	printer := printer.New()
 	printer.Quiet = quiet
 
-	printer.PrintInfo(theCmd, nil)
+	printer.PrintInfo(status.Status)
 
 	ch := make(chan gossm.SsmMessage)
-	go theCmd.Stream()
+	go status.Stream(outputs, ch)
 
 	for msg := range ch {
 		printer.Print(msg)

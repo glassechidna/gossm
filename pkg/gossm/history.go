@@ -36,26 +36,22 @@ func (h *History) Close() error {
 	return h.db.Close()
 }
 
-func (h *History) PutCommand(status *Status) error {
-	bytes, err := json.Marshal(command)
+func (h *History) PutCommand(status Status) error {
+	commandId := *status.Command.CommandId
+
+	bytes, err := json.Marshal(status.Command)
 	if err != nil {
 		return err
 	}
-	_, err = h.db.Exec(`insert into commands (commandId, commandJson) values(?, ?) on conflict(commandId) do update set commandJson = excluded.commandJson`, *command.CommandId, bytes)
+	_, err = h.db.Exec(`insert into commands (commandId, commandJson) values(?, ?) on conflict(commandId) do update set commandJson = excluded.commandJson`, commandId, bytes)
 	if err != nil {
 		return err
 	}
 
-	if len(invocations) > 0 {
-		commandId := ""
-		for _, inv := range invocations {
-			commandId = *inv.CommandId
-		}
-		bytes, _ := json.Marshal(invocations)
-		_, err := h.db.Exec(`insert into commands (commandId, Invocations) values(?, ?) on conflict(commandId) do update set Invocations = excluded.Invocations`, commandId, bytes)
-		if err != nil {
-			return err
-		}
+	bytes, _ = json.Marshal(status.Invocations)
+	_, err = h.db.Exec(`insert into commands (commandId, Invocations) values(?, ?) on conflict(commandId) do update set Invocations = excluded.Invocations`, commandId, bytes)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -70,19 +66,18 @@ func (h *History) AppendPayload(msg SsmMessage) error {
 	return err
 }
 
-type HistoricalCommand struct {
-	Command     ssm.Command
-	Invocations Invocations
+type HistoricalStatus struct {
+	*Status
 }
 
-func (h *History) Commands() ([]HistoricalCommand, error) {
+func (h *History) Commands() ([]HistoricalStatus, error) {
 	rows, err := h.db.Query(`select commandJson, Invocations from commands`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var commands []HistoricalCommand
+	var commands []HistoricalStatus
 
 	for rows.Next() {
 		var commandJson, invocationsJson []byte
@@ -103,7 +98,7 @@ func (h *History) Commands() ([]HistoricalCommand, error) {
 			return nil, err
 		}
 
-		cmd := HistoricalCommand{Command: command, Invocations: invocations}
+		cmd := HistoricalStatus{&Status{Command: &command, Invocations: invocations}}
 		commands = append(commands, cmd)
 	}
 
@@ -139,7 +134,7 @@ func (h *History) CommandOutputs(commandId string) ([]HistoricalOutput, error) {
 	return outputs, nil
 }
 
-func (c *HistoricalCommand) Stream(outputs []HistoricalOutput, ch chan SsmMessage) {
+func (c *HistoricalStatus) Stream(outputs []HistoricalOutput, ch chan SsmMessage) {
 	defer close(ch)
 
 	for _, o := range outputs {
@@ -156,7 +151,7 @@ func (c *HistoricalCommand) Stream(outputs []HistoricalOutput, ch chan SsmMessag
 	ch <- SsmMessage{
 		CommandId: *c.Command.CommandId,
 		Control: &SsmControlMessage{
-			Invocations: c.Invocations,
+			Status: c.Status,
 		},
 	}
 }

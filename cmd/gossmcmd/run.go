@@ -43,10 +43,10 @@ func doit(sess *session.Session, history *gossm.History, shellType, command stri
 		panic(err)
 	}
 
-	printer.PrintInfo(command, resp)
+	printer.PrintInfo(resp)
 
 	ch := make(chan gossm.SsmMessage)
-	go client.Poll(context.Background(), resp.CommandId, ch)
+	go client.Poll(context.Background(), *resp.Command.CommandId, ch)
 
 	if files {
 		printToFiles(resp, ch)
@@ -57,8 +57,8 @@ func doit(sess *session.Session, history *gossm.History, shellType, command stri
 	}
 }
 
-func printToFiles(resp *gossm.DoitResponse, ch chan gossm.SsmMessage) {
-	dir, err := filepath.Abs(resp.CommandId)
+func printToFiles(resp *gossm.Status, ch chan gossm.SsmMessage) {
+	dir, err := filepath.Abs(*resp.Command.CommandId)
 	if err != nil {
 		panic(err)
 	}

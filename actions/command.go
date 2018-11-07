@@ -74,7 +74,7 @@ func commandPost(c buffalo.Context) error {
 	}
 
 	return c.Render(200, r.JSON(commandResponse{
-		CommandId:   resp.CommandId,
+		CommandId:   *resp.Command.CommandId,
 		Invocations: resp.Invocations,
 	}))
 

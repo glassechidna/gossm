@@ -26,7 +26,7 @@ type SsmPayloadMessage struct {
 }
 
 type SsmControlMessage struct {
-	Status Status
+	Status *Status
 }
 
 type SsmMessage struct {
@@ -63,7 +63,7 @@ func (c *Client) Doit(ctx context.Context, commandInput *ssm.SendCommandInput) (
 		return nil, err
 	}
 
-	err = c.history.PutCommand(resp.Command, invocations)
+	err = c.history.PutCommand(Status{Command: resp.Command, Invocations: invocations})
 	if err != nil {
 		return nil, err
 	}
@@ -157,9 +157,9 @@ func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage)
 		case status := <-statusCh:
 			ch <- SsmMessage{
 				CommandId: commandId,
-				Control:   &SsmControlMessage{Status: status},
+				Control:   &SsmControlMessage{Status: &status},
 			}
-			err = c.history.PutCommand(status.Command, status.Invocations)
+			err = c.history.PutCommand(status)
 			if err != nil {
 				return err
 			}

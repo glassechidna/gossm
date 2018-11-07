@@ -29,11 +29,11 @@ func New() *Printer {
 	}
 }
 
-func (p *Printer) PrintInfo(command string, invocations gossm.Invocations) {
-	p.printInfo("Command: ", command)
-	p.printInfo("Command ID: ", resp.CommandId)
+func (p *Printer) PrintInfo(status *gossm.Status) {
+	p.printInfo("Command: ", *status.Command.Parameters["commands"][0])
+	p.printInfo("Command ID: ", *status.Command.CommandId)
 
-	instanceIds := resp.Invocations.InstanceIds()
+	instanceIds := status.Invocations.InstanceIds()
 	prefix := fmt.Sprintf("Running command on %d instances: ", len(instanceIds))
 	p.printInfo(prefix, fmt.Sprintf("%+v", instanceIds))
 }
