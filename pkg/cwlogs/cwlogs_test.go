@@ -21,7 +21,6 @@ func (a *testApi) FilterLogEventsPagesWithContext(ctx aws.Context, input *cloudw
 
 func TestStream(t *testing.T) {
 	api := &testApi{}
-	c := New(api)
 
 	commandId := "83b98484-4a9b-4470-ab17-e4a646e2a72e"
 
@@ -31,7 +30,7 @@ func TestStream(t *testing.T) {
 		LogStreamNamePrefix: &commandId,
 	}
 
-	var stream *cwStream
+	stream := &CwStream{Input: input}
 
 	// this is grotesque
 	api.cb = func(ctx aws.Context, pageInput *cloudwatchlogs.FilterLogEventsInput, pager func(*cloudwatchlogs.FilterLogEventsOutput, bool) bool, opts ...request.Option) error {
@@ -97,11 +96,12 @@ func TestStream(t *testing.T) {
 		return nil
 	}
 
-	stream = c.Stream(ctx, input)
+	ch := make(chan *cloudwatchlogs.FilteredLogEvent)
+	go stream.Stream(ctx, api, ch)
 
 	idx := 0
 	expectedEventIds := []string{"ev10", "ev11", "ev20", "ev21", "ev22", "ev23"}
-	for ev := range stream.Channel {
+	for ev := range ch {
 		assert.EqualValues(t, expectedEventIds[idx], *ev.EventId)
 		idx++
 	}

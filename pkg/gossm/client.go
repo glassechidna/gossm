@@ -131,8 +131,9 @@ func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage)
 		return err
 	}
 
-	cw := cwlogs.New(c.logsApi)
-	s := cw.Stream(ctx, input)
+	s := &cwlogs.CwStream{Input: input}
+	logCh := make(chan *cloudwatchlogs.FilteredLogEvent)
+	go s.Stream(ctx, c.logsApi, logCh)
 
 	statusCh := make(chan Status)
 	prevStatus := Invocations{}
@@ -150,7 +151,7 @@ func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage)
 
 	for {
 		select {
-		case event := <-s.Channel:
+		case event := <-logCh:
 			msg := logEventToSsmMessage(event)
 			err = c.history.AppendPayload(msg)
 			ch <- msg
