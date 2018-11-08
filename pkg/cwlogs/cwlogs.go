@@ -33,6 +33,10 @@ func (c *CwLogs) Stream(ctx context.Context, input *cloudwatchlogs.FilterLogEven
 
 			err := c.api.FilterLogEventsPagesWithContext(ctx, input, func(page *cloudwatchlogs.FilterLogEventsOutput, lastPage bool) bool {
 				for _, event := range page.Events {
+					if stringInSlice(*event.LogStreamName, cs.ignored) {
+						continue
+					}
+
 					if _, ok := seenEvents[*event.EventId]; !ok {
 						cs.Channel <- event
 						seenEvents[*event.EventId] = true
