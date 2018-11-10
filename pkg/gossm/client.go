@@ -141,14 +141,6 @@ func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage)
 
 	done := make(chan bool)
 
-	instanceCompleted := func(id string) {
-		// TODO: fix duplication
-		s.Ignore(strings.Join([]string{commandId, id, "aws-runShellScript", "stdout"}, "/"))
-		s.Ignore(strings.Join([]string{commandId, id, "aws-runShellScript", "stderr"}, "/"))
-		s.Ignore(strings.Join([]string{commandId, id, "aws-runPowerShellScript", "stdout"}, "/"))
-		s.Ignore(strings.Join([]string{commandId, id, "aws-runPowerShellScript", "stderr"}, "/"))
-	}
-
 	for {
 		select {
 		case event := <-logCh:
@@ -167,7 +159,9 @@ func (c *Client) Poll(ctx context.Context, commandId string, ch chan SsmMessage)
 			changed := status.Invocations.CompletedSince(prevStatus)
 			prevStatus = status.Invocations
 			for id := range changed {
-				time.AfterFunc(5*time.Second, func() { instanceCompleted(id) })
+				time.AfterFunc(5*time.Second, func() {
+					s.IgnorePrefix(fmt.Sprintf("%s/%s", commandId, id))
+				})
 			}
 			if status.Invocations.AllComplete() {
 				time.AfterFunc(5*time.Second, func() { done <- true })
