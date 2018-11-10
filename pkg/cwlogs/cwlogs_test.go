@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 type testApi struct {
@@ -30,7 +31,7 @@ func TestStream(t *testing.T) {
 		LogStreamNamePrefix: &commandId,
 	}
 
-	stream := &CwStream{Input: input}
+	stream := &CwStream{Input: input, Sleep: time.Microsecond}
 
 	// this is grotesque
 	api.cb = func(ctx aws.Context, pageInput *cloudwatchlogs.FilterLogEventsInput, pager func(*cloudwatchlogs.FilterLogEventsOutput, bool) bool, opts ...request.Option) error {
