@@ -25,6 +25,14 @@ var historyCmd = &cobra.Command{
 	},
 }
 
+func defaultHistory() *gossm.History {
+	history, err := gossm.NewHistory("foo.db")
+	if err != nil {
+		panic(err)
+	}
+	return history
+}
+
 type historyUi struct {
 	*gossm.History
 }

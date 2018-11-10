@@ -40,23 +40,23 @@ func TestStream(t *testing.T) {
 			Events: []*cloudwatchlogs.FilteredLogEvent{
 				{
 					LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123/aws-runShellScript/stdout"),
-					EventId: aws.String("ev10"),
-					Timestamp: aws.Int64(50),
+					EventId:       aws.String("ev10"),
+					Timestamp:     aws.Int64(50),
 				},
 				{
 					LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123/aws-runShellScript/stdout"),
-					EventId: aws.String("ev11"),
-					Timestamp: aws.Int64(55),
+					EventId:       aws.String("ev11"),
+					Timestamp:     aws.Int64(55),
 				},
 				{
 					LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
-					EventId: aws.String("ev20"),
-					Timestamp: aws.Int64(60),
+					EventId:       aws.String("ev20"),
+					Timestamp:     aws.Int64(60),
 				},
 				{
 					LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
-					EventId: aws.String("ev21"),
-					Timestamp: aws.Int64(65),
+					EventId:       aws.String("ev21"),
+					Timestamp:     aws.Int64(65),
 				},
 			},
 		}, true)
@@ -70,18 +70,18 @@ func TestStream(t *testing.T) {
 				Events: []*cloudwatchlogs.FilteredLogEvent{
 					{
 						LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123/aws-runShellScript/stdout"),
-						EventId: aws.String("ev12"),
-						Timestamp: aws.Int64(58),
+						EventId:       aws.String("ev12"),
+						Timestamp:     aws.Int64(58),
 					},
 					{
 						LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
-						EventId: aws.String("ev22"),
-						Timestamp: aws.Int64(67),
+						EventId:       aws.String("ev22"),
+						Timestamp:     aws.Int64(67),
 					},
 					{
 						LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
-						EventId: aws.String("ev23"),
-						Timestamp: aws.Int64(69),
+						EventId:       aws.String("ev23"),
+						Timestamp:     aws.Int64(69),
 					},
 				},
 			}, true)
