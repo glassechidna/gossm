@@ -5,15 +5,17 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
 	"math"
+	"strings"
 	"sync"
 	"time"
 )
 
 type CwStream struct {
-	Input   *cloudwatchlogs.FilterLogEventsInput
-	Sleep   time.Duration
-	ignored []string
-	mut     *sync.Mutex
+	Input           *cloudwatchlogs.FilterLogEventsInput
+	Sleep           time.Duration
+	ignored         []string
+	ignoredPrefixes []string
+	mut             *sync.Mutex
 }
 
 func (c *CwStream) Stream(ctx context.Context, api cloudwatchlogsiface.CloudWatchLogsAPI, ch chan *cloudwatchlogs.FilteredLogEvent) {
@@ -37,7 +39,7 @@ func (c *CwStream) Stream(ctx context.Context, api cloudwatchlogsiface.CloudWatc
 
 		err := api.FilterLogEventsPagesWithContext(ctx, c.Input, func(page *cloudwatchlogs.FilterLogEventsOutput, lastPage bool) bool {
 			for _, event := range page.Events {
-				if stringInSlice(*event.LogStreamName, c.ignored) {
+				if c.shouldIgnore(event) {
 					continue
 				}
 
@@ -75,10 +77,28 @@ func (c *CwStream) Stream(ctx context.Context, api cloudwatchlogsiface.CloudWatc
 
 }
 
+func (c *CwStream) shouldIgnore(event *cloudwatchlogs.FilteredLogEvent) bool {
+	if stringInSlice(*event.LogStreamName, c.ignored) {
+		return true
+	}
+	for _, ignoredPrefix := range c.ignoredPrefixes {
+		if strings.HasPrefix(*event.LogStreamName, ignoredPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *CwStream) Ignore(logStreamName string) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	c.ignored = append(c.ignored, logStreamName)
+}
+
+func (c *CwStream) IgnorePrefix(logStreamNamePrefix string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	c.ignoredPrefixes = append(c.ignoredPrefixes, logStreamNamePrefix)
 }
 
 func stringInSlice(a string, list []string) bool {
