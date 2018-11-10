@@ -38,22 +38,22 @@ func TestStream(t *testing.T) {
 		pager(&cloudwatchlogs.FilterLogEventsOutput{
 			Events: []*cloudwatchlogs.FilteredLogEvent{
 				{
-					LogStreamName: aws.String("/aws/ssm/AWS-RunShellScript/83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123/aws-runShellScript/stdout"),
+					LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123/aws-runShellScript/stdout"),
 					EventId: aws.String("ev10"),
 					Timestamp: aws.Int64(50),
 				},
 				{
-					LogStreamName: aws.String("/aws/ssm/AWS-RunShellScript/83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123/aws-runShellScript/stdout"),
+					LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123/aws-runShellScript/stdout"),
 					EventId: aws.String("ev11"),
 					Timestamp: aws.Int64(55),
 				},
 				{
-					LogStreamName: aws.String("/aws/ssm/AWS-RunShellScript/83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
+					LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
 					EventId: aws.String("ev20"),
 					Timestamp: aws.Int64(60),
 				},
 				{
-					LogStreamName: aws.String("/aws/ssm/AWS-RunShellScript/83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
+					LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
 					EventId: aws.String("ev21"),
 					Timestamp: aws.Int64(65),
 				},
@@ -63,22 +63,22 @@ func TestStream(t *testing.T) {
 		api.cb = func(ctx aws.Context, pageInput *cloudwatchlogs.FilterLogEventsInput, pager func(*cloudwatchlogs.FilterLogEventsOutput, bool) bool, opts ...request.Option) error {
 			assert.EqualValues(t, 56, *pageInput.StartTime)
 
-			stream.IgnorePrefix("/aws/ssm/AWS-RunShellScript/83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123")
+			stream.IgnorePrefix("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123")
 
 			pager(&cloudwatchlogs.FilterLogEventsOutput{
 				Events: []*cloudwatchlogs.FilteredLogEvent{
 					{
-						LogStreamName: aws.String("/aws/ssm/AWS-RunShellScript/83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123/aws-runShellScript/stdout"),
+						LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123/aws-runShellScript/stdout"),
 						EventId: aws.String("ev12"),
 						Timestamp: aws.Int64(58),
 					},
 					{
-						LogStreamName: aws.String("/aws/ssm/AWS-RunShellScript/83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
+						LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
 						EventId: aws.String("ev22"),
 						Timestamp: aws.Int64(67),
 					},
 					{
-						LogStreamName: aws.String("/aws/ssm/AWS-RunShellScript/83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
+						LogStreamName: aws.String("83b98484-4a9b-4470-ab17-e4a646e2a72e/i-def456/aws-runShellScript/stdout"),
 						EventId: aws.String("ev23"),
 						Timestamp: aws.Int64(69),
 					},
