@@ -39,7 +39,9 @@ func (c *CwStream) Stream(ctx context.Context, api cloudwatchlogsiface.CloudWatc
 
 		err := api.FilterLogEventsPagesWithContext(ctx, c.Input, func(page *cloudwatchlogs.FilterLogEventsOutput, lastPage bool) bool {
 			for _, event := range page.Events {
-				if c.shouldIgnore(event) {
+				streamName := *event.LogStreamName
+				if c.shouldIgnoreStream(streamName) {
+					delete(lastTimestamps, streamName)
 					continue
 				}
 
@@ -48,7 +50,7 @@ func (c *CwStream) Stream(ctx context.Context, api cloudwatchlogsiface.CloudWatc
 					seenEvents[*event.EventId] = true
 				}
 
-				lastTimestamps[*event.LogStreamName] = *event.Timestamp
+				lastTimestamps[streamName] = *event.Timestamp
 			}
 			return !lastPage
 		})
@@ -59,8 +61,8 @@ func (c *CwStream) Stream(ctx context.Context, api cloudwatchlogsiface.CloudWatc
 		var lastTimestamp int64 = math.MaxInt64
 
 		c.mut.Lock()
-		for logStreamName, ts := range lastTimestamps {
-			if ts < lastTimestamp && !stringInSlice(logStreamName, c.ignored) {
+		for _, ts := range lastTimestamps {
+			if ts < lastTimestamp {
 				lastTimestamp = ts
 			}
 		}
@@ -77,12 +79,12 @@ func (c *CwStream) Stream(ctx context.Context, api cloudwatchlogsiface.CloudWatc
 
 }
 
-func (c *CwStream) shouldIgnore(event *cloudwatchlogs.FilteredLogEvent) bool {
-	if stringInSlice(*event.LogStreamName, c.ignored) {
+func (c *CwStream) shouldIgnoreStream(streamName string) bool {
+	if stringInSlice(streamName, c.ignored) {
 		return true
 	}
 	for _, ignoredPrefix := range c.ignoredPrefixes {
-		if strings.HasPrefix(*event.LogStreamName, ignoredPrefix) {
+		if strings.HasPrefix(streamName, ignoredPrefix) {
 			return true
 		}
 	}

@@ -63,7 +63,7 @@ func TestStream(t *testing.T) {
 		api.cb = func(ctx aws.Context, pageInput *cloudwatchlogs.FilterLogEventsInput, pager func(*cloudwatchlogs.FilterLogEventsOutput, bool) bool, opts ...request.Option) error {
 			assert.EqualValues(t, 56, *pageInput.StartTime)
 
-			stream.Ignore("/aws/ssm/AWS-RunShellScript/83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123/aws-runShellScript/stdout")
+			stream.IgnorePrefix("/aws/ssm/AWS-RunShellScript/83b98484-4a9b-4470-ab17-e4a646e2a72e/i-abc123")
 
 			pager(&cloudwatchlogs.FilterLogEventsOutput{
 				Events: []*cloudwatchlogs.FilteredLogEvent{
