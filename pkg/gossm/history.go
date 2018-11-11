@@ -3,8 +3,11 @@ package gossm
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	_ "github.com/mattn/go-sqlite3"
+	"os/user"
+	"path/filepath"
 )
 
 type History struct {
@@ -70,6 +73,43 @@ type HistoricalStatus struct {
 	*Status
 }
 
+func rowToStatus(rows *sql.Rows) (*HistoricalStatus, error) {
+	var commandJson, invocationsJson []byte
+	err := rows.Scan(&commandJson, &invocationsJson)
+	if err != nil {
+		return nil, err
+	}
+
+	command := ssm.Command{}
+	err = json.Unmarshal(commandJson, &command)
+	if err != nil {
+		return nil, err
+	}
+
+	invocations := Invocations{}
+	err = json.Unmarshal(invocationsJson, &invocations)
+	if err != nil {
+		return nil, err
+	}
+
+	return &HistoricalStatus{&Status{Command: &command, Invocations: invocations}}, nil
+}
+
+func (h *History) Command(commandId string) (*HistoricalStatus, error) {
+	rows, err := h.db.Query(`select commandJson, invocations from commands where commandId = ?`, commandId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+
+	for rows.Next() {
+		return rowToStatus(rows)
+	}
+
+	return nil, errors.New("no command by id " + commandId)
+}
+
 func (h *History) Commands() ([]HistoricalStatus, error) {
 	rows, err := h.db.Query(`select commandJson, invocations from commands`)
 	if err != nil {
@@ -80,26 +120,11 @@ func (h *History) Commands() ([]HistoricalStatus, error) {
 	var commands []HistoricalStatus
 
 	for rows.Next() {
-		var commandJson, invocationsJson []byte
-		err = rows.Scan(&commandJson, &invocationsJson)
+		status, err := rowToStatus(rows)
 		if err != nil {
 			return nil, err
 		}
-
-		command := ssm.Command{}
-		err = json.Unmarshal(commandJson, &command)
-		if err != nil {
-			return nil, err
-		}
-
-		invocations := Invocations{}
-		err = json.Unmarshal(invocationsJson, &invocations)
-		if err != nil {
-			return nil, err
-		}
-
-		cmd := HistoricalStatus{&Status{Command: &command, Invocations: invocations}}
-		commands = append(commands, cmd)
+		commands = append(commands, *status)
 	}
 
 	return commands, nil
@@ -154,4 +179,12 @@ func (c *HistoricalStatus) Stream(outputs []HistoricalOutput, ch chan SsmMessage
 			Status: c.Status,
 		},
 	}
+}
+
+var DefaultHistory *History
+
+func init() {
+	u, _ := user.Current()
+	path := filepath.Join(u.HomeDir, ".gossm.history.db")
+	DefaultHistory, _ = NewHistory(path)
 }

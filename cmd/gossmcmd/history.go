@@ -15,7 +15,7 @@ var historyCmd = &cobra.Command{
 	Use:   "history",
 	Short: "Show previously-executed commands",
 	Run: func(cmd *cobra.Command, args []string) {
-		h := &historyUi{defaultHistory()}
+		h := &historyUi{gossm.DefaultHistory}
 
 		if len(args) == 0 {
 			h.overview()
@@ -23,14 +23,6 @@ var historyCmd = &cobra.Command{
 			h.show(args[0])
 		}
 	},
-}
-
-func defaultHistory() *gossm.History {
-	history, err := gossm.NewHistory("foo.db")
-	if err != nil {
-		panic(err)
-	}
-	return history
 }
 
 type historyUi struct {

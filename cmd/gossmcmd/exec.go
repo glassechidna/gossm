@@ -40,7 +40,7 @@ var execCmd = &cobra.Command{
 		}
 		files := viper.GetBool("files")
 
-		doit(sess, defaultHistory(), shell, command, files, quiet, timeout, tagPairs, instanceIds)
+		doit(sess, gossm.DefaultHistory, shell, command, files, quiet, timeout, tagPairs, instanceIds)
 	},
 }
 

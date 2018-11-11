@@ -116,7 +116,7 @@ func commandPost(c buffalo.Context) error {
 }
 
 func commandList(c buffalo.Context) error {
-	cmds, err := sess().history.Commands()
+	cmds, err := gossm.DefaultHistory.Commands()
 	if err != nil {
 		return err
 	}

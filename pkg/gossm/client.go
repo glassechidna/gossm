@@ -32,8 +32,8 @@ type SsmControlMessage struct {
 type SsmMessage struct {
 	CommandId string
 	Error     error
-	Control   *SsmControlMessage
-	Payload   *SsmPayloadMessage
+	Control   *SsmControlMessage `json:",omitempty"`
+	Payload   *SsmPayloadMessage `json:",omitempty"`
 }
 
 func New(sess *session.Session, history *History) *Client {

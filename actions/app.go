@@ -45,6 +45,7 @@ func App() *buffalo.App {
 		app.GET("/", HomeHandler)
 		app.POST("/api/commands", commandPost)
 		app.GET("/api/commands", commandList)
+		app.GET("/api/invocations", invocationsGet)
 
 		app.ServeFiles("/", assetsBox) // serve files from the public directory
 	}

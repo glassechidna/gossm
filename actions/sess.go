@@ -7,7 +7,6 @@ import (
 )
 
 type GossmSession struct {
-	history *gossm.History
 	client  *gossm.Client
 }
 
@@ -16,11 +15,9 @@ var gossmSession *GossmSession
 
 func sess() *GossmSession {
 	sessOnce.Do(func() {
-		h, _ := gossm.NewHistory("foo.db")
 		sess := awssess.AwsSession("", "")
 		gossmSession = &GossmSession{
-			history: h,
-			client:  gossm.New(sess, h),
+			client:  gossm.New(sess, gossm.DefaultHistory),
 		}
 	})
 	return gossmSession
